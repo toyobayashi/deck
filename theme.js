@@ -161,6 +161,6 @@ export default makeTheme({
   ]
 }, {
   code: {
-    fontFamily: 'Consolas'
+    fontFamily: '"Cascadia Code", Consolas, monaco, "Courier New", monospace'
   }
 })
