@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "name": "promise-deck",
+  "version": "1.0.0",
+  "scripts": {
+    "sync": "node scripts/install.js",
+    "start": "node scripts/start.js",
+    "build": "node scripts/build.js",
+    "build:gh": "cross-env DECK_PREFIX=/deck node scripts/build.js",
+    "build:vercel": "node scripts/build-vercel.js"
+  },
+  "devDependencies": {
+    "code-surfer": "3.1.1",
+    "cross-env": "^7.0.3",
+    "fs-extra": "^10.0.0",
+    "mdx-deck": "4.1.1"
+  }
+}

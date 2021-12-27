@@ -1,0 +1,1782 @@
+import { CodeSurfer } from "code-surfer"
+import customTheme from '../../theme.js'
+
+export const theme = customTheme
+
+# Promise Implementation in JavaScript
+
+| Key         | Description                                  |
+| ----------- | :------------------------------------------: |
+| Left Arrow, Page Up, Shift + Space | Go to previous slide (or step in Steps) |
+| Right Arrow, Page Down, Space | Go to next slide (or step in Steps)     |
+| Option/Alt + P  | Toggle Presenter Mode     |
+| Option/Alt + O  | Toggle Overview Mode      |
+| Option/Alt + G  | Toggle Grid Mode          |
+
+---
+
+<CodeSurfer>
+
+```js title="" subtitle="MyPromise class"
+class MyPromise {
+  constructor (resolver) {
+    
+  }
+}
+```
+
+```js title="" subtitle="Resolver"
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js 7:14,16[16:22,25:31],18[7:12] title="" subtitle="Add resolve and reject"
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    const reject = (reason) => {
+
+    }
+
+    const resolve = (value) => {
+      
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js title="" subtitle="Add promise status enum"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+
+    const reject = (reason) => {
+
+    }
+
+    const resolve = (value) => {
+      
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js 12:16,19:27 title="" subtitle="Implement reject"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js 12:17,32:40 title="" subtitle="Implement resolve like reject"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js 31:40,44:45 title="" subtitle="Make resolve helper"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      _resolve(value)
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js title="" subtitle="Determine whether value is a Thenable"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js title="" subtitle="Resolve Thenable"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+}
+```
+
+```js title="" subtitle="Implement static resolve and reject"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+}
+```
+
+```js title="" subtitle="Add then method"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      if (this._status === PromiseStatus.FULFILLED) {
+
+      } else if (this._status === PromiseStatus.REJECTED) {
+
+      } else {
+
+      }
+    })
+  }
+}
+```
+
+```js title="" subtitle="Implement then onfulfilled"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      const onSuccess = () => {
+        try {
+          typeof onfulfilled === 'function'
+            ? resolve(onfulfilled(this._result))
+            : resolve(this._result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      if (this._status === PromiseStatus.FULFILLED) {
+        queueMicrotask(onSuccess)
+      } else if (this._status === PromiseStatus.REJECTED) {
+
+      } else {
+        this._onSuccess.push(onSuccess)
+      }
+    })
+  }
+}
+```
+
+```js title="" subtitle="Implement then onrejected"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      const onSuccess = () => {
+        try {
+          typeof onfulfilled === 'function'
+            ? resolve(onfulfilled(this._result))
+            : resolve(this._result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      const onFail = () => {
+        try {
+          typeof onrejected === 'function'
+            ? resolve(onrejected(this._reason))
+            : reject(this._reason)
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      if (this._status === PromiseStatus.FULFILLED) {
+        queueMicrotask(onSuccess)
+      } else if (this._status === PromiseStatus.REJECTED) {
+        queueMicrotask(onFail)
+      } else {
+        this._onSuccess.push(onSuccess)
+        this._onFail.push(onFail)
+      }
+    })
+  }
+}
+```
+
+```js subtitle="Implement catch method"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      const onSuccess = () => {
+        try {
+          typeof onfulfilled === 'function'
+            ? resolve(onfulfilled(this._result))
+            : resolve(this._result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      const onFail = () => {
+        try {
+          typeof onrejected === 'function'
+            ? resolve(onrejected(this._reason))
+            : reject(this._reason)
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      if (this._status === PromiseStatus.FULFILLED) {
+        queueMicrotask(onSuccess)
+      } else if (this._status === PromiseStatus.REJECTED) {
+        queueMicrotask(onFail)
+      } else {
+        this._onSuccess.push(onSuccess)
+        this._onFail.push(onFail)
+      }
+    })
+  }
+
+  ['catch'] (onrejected) {
+    return this.then(_ => _, onrejected)
+  }
+}
+```
+
+```js title="" subtitle="Implement finally method"
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      const onSuccess = () => {
+        try {
+          typeof onfulfilled === 'function'
+            ? resolve(onfulfilled(this._result))
+            : resolve(this._result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      const onFail = () => {
+        try {
+          typeof onrejected === 'function'
+            ? resolve(onrejected(this._reason))
+            : reject(this._reason)
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      if (this._status === PromiseStatus.FULFILLED) {
+        queueMicrotask(onSuccess)
+      } else if (this._status === PromiseStatus.REJECTED) {
+        queueMicrotask(onFail)
+      } else {
+        this._onSuccess.push(onSuccess)
+        this._onFail.push(onFail)
+      }
+    })
+  }
+
+  ['catch'] (onrejected) {
+    return this.then(_ => _, onrejected)
+  }
+
+  ['finally'] (onsettled) {
+    return this.then((value) => {
+      if (typeof onsettled === 'function') {
+        return MyPromise.resolve(onsettled()).then(() => value)
+      }
+      return value
+    }, (reason) => {
+      if (typeof onsettled === 'function') {
+        return MyPromise.resolve(onsettled()).then(() => { throw reason })
+      }
+      throw reason
+    })
+  }
+}
+```
+
+```js
+const PromiseStatus = {
+  PENDING: 'pending',
+  FULFILLED: 'fulfilled',
+  REJECTED: 'rejected'
+}
+
+class MyPromise {
+  constructor (resolver) {
+    if (typeof resolver !== 'function') {
+      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+    }
+
+    this._status = PromiseStatus.PENDING
+    this._result = undefined
+    this._reason = undefined
+    this._onSuccess = []
+    this._onFail = []
+
+    const reject = (reason) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      this._status = PromiseStatus.REJECTED
+      this._reason = reason
+      this._onSuccess.length = 0
+      queueMicrotask(() => {
+        while (this._onFail.length) {
+          this._onFail.shift()()
+        }
+      })
+    }
+
+    const _resolve = (value) => {
+      this._status = PromiseStatus.FULFILLED
+      this._result = value
+      this._onFail.length = 0
+      queueMicrotask(() => {
+        while (this._onSuccess.length) {
+          this._onSuccess.shift()()
+        }
+      })
+    }
+
+    const resolve = (value) => {
+      if (this._status !== PromiseStatus.PENDING) return
+      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
+        let then
+        try {
+          then = value.then
+        } catch (err) {
+          reject(err)
+          return
+        }
+
+        if (typeof then === 'function') {
+          if (value === this) {
+            reject(new TypeError('Chaining cycle detected for promise'))
+            return
+          }
+          let called = false
+          try {
+            then.call(value, (v) => {
+              if (called) return
+              called = true
+              resolve(v)
+            }, (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            })
+          } catch (err) {
+            if (called) return
+            reject(err)
+          }
+        } else {
+          _resolve(value)
+        }
+      } else {
+        _resolve(value)
+      }
+    }
+
+    try {
+      resolver(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  static resolve (value) {
+    return new MyPromise((resolve) => { resolve(value) })
+  }
+
+  static reject (reason) {
+    return new MyPromise((_, reject) => { reject(reason) })
+  }
+
+  then (onfulfilled, onrejected) {
+    return new MyPromise((resolve, reject) => {
+      const onSuccess = () => {
+        try {
+          typeof onfulfilled === 'function'
+            ? resolve(onfulfilled(this._result))
+            : resolve(this._result)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      const onFail = () => {
+        try {
+          typeof onrejected === 'function'
+            ? resolve(onrejected(this._reason))
+            : reject(this._reason)
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      if (this._status === PromiseStatus.FULFILLED) {
+        queueMicrotask(onSuccess)
+      } else if (this._status === PromiseStatus.REJECTED) {
+        queueMicrotask(onFail)
+      } else {
+        this._onSuccess.push(onSuccess)
+        this._onFail.push(onFail)
+      }
+    })
+  }
+
+  ['catch'] (onrejected) {
+    return this.then(_ => _, onrejected)
+  }
+
+  ['finally'] (onsettled) {
+    return this.then((value) => {
+      if (typeof onsettled === 'function') {
+        return MyPromise.resolve(onsettled()).then(() => value)
+      }
+      return value
+    }, (reason) => {
+      if (typeof onsettled === 'function') {
+        return MyPromise.resolve(onsettled()).then(() => { throw reason })
+      }
+      throw reason
+    })
+  }
+}
+```
+
+</CodeSurfer>
+
+---
+
+# Static methods
+
+---
+
+<CodeSurfer>
+
+```js title="" subtitle="Add static methods"
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+
+  }
+
+  static all (iterable) {
+
+  }
+
+  static race (iterable) {
+
+  }
+
+  static allSettled (iterable) {
+
+  }
+}
+```
+
+```js title="" subtitle="Promise.all"
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+
+  }
+
+  static all (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = value
+          if (size === complete) {
+            resolve(result)
+          }
+        }, reject)
+      })
+    })
+  }
+
+  static race (iterable) {
+
+  }
+
+  static allSettled (iterable) {
+
+  }
+}
+```
+
+```js title="" subtitle="Promise.race"
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+
+  }
+
+  static all (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = value
+          if (size === complete) {
+            resolve(result)
+          }
+        }, reject)
+      })
+    })
+  }
+
+  static race (iterable) {
+    return new MyPromise((resolve, reject) => {
+      for (const p of iterable) {
+        MyPromise.resolve(p).then(resolve, reject)
+      }
+    })
+  }
+
+  static allSettled (iterable) {
+
+  }
+}
+```
+
+```js title="" subtitle="Promise.allSettled"
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+
+  }
+
+  static all (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = value
+          if (size === complete) {
+            resolve(result)
+          }
+        }, reject)
+      })
+    })
+  }
+
+  static race (iterable) {
+    return new MyPromise((resolve, reject) => {
+      for (const p of iterable) {
+        MyPromise.resolve(p).then(resolve, reject)
+      }
+    })
+  }
+
+  static allSettled (iterable) {
+    return new MyPromise((resolve) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            value: value
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        }, (reason) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            reason: reason
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        })
+      })
+    })
+  }
+}
+```
+
+```js title="" subtitle="Promise.any"
+class MyAggregateError extends Error {
+  get name () {
+    return 'MyAggregateError'
+  }
+
+  constructor (errors, message) {
+    super(message)
+    if (typeof errors[Symbol.iterator] !== 'function') {
+      throw new TypeError(`${typeof errors} ${errors} is not iterable`)
+    }
+    this.errors = errors
+  }
+}
+
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const errors = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        reject(new MyAggregateError(errors, 'All promises were rejected'))
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then(resolve, (reason) => {
+          complete++
+          errors[i] = reason
+          if (size === complete) {
+            reject(new MyAggregateError(errors, 'All promises were rejected'))
+          }
+        })
+      })
+    })
+  }
+
+  static all (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = value
+          if (size === complete) {
+            resolve(result)
+          }
+        }, reject)
+      })
+    })
+  }
+
+  static race (iterable) {
+    return new MyPromise((resolve, reject) => {
+      for (const p of iterable) {
+        MyPromise.resolve(p).then(resolve, reject)
+      }
+    })
+  }
+
+  static allSettled (iterable) {
+    return new MyPromise((resolve) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            value: value
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        }, (reason) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            reason: reason
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        })
+      })
+    })
+  }
+}
+```
+
+```js
+class MyAggregateError extends Error {
+  get name () {
+    return 'MyAggregateError'
+  }
+
+  constructor (errors, message) {
+    super(message)
+    if (typeof errors[Symbol.iterator] !== 'function') {
+      throw new TypeError(`${typeof errors} ${errors} is not iterable`)
+    }
+    this.errors = errors
+  }
+}
+
+class MyPromise {
+  /* ... */
+
+  static any (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const errors = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        reject(new MyAggregateError(errors, 'All promises were rejected'))
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then(resolve, (reason) => {
+          complete++
+          errors[i] = reason
+          if (size === complete) {
+            reject(new MyAggregateError(errors, 'All promises were rejected'))
+          }
+        })
+      })
+    })
+  }
+
+  static all (iterable) {
+    return new MyPromise((resolve, reject) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = value
+          if (size === complete) {
+            resolve(result)
+          }
+        }, reject)
+      })
+    })
+  }
+
+  static race (iterable) {
+    return new MyPromise((resolve, reject) => {
+      for (const p of iterable) {
+        MyPromise.resolve(p).then(resolve, reject)
+      }
+    })
+  }
+
+  static allSettled (iterable) {
+    return new MyPromise((resolve) => {
+      let size = 0
+      let complete = 0
+      const promises = []
+      const result = []
+      for (const promise of iterable) {
+        size++
+        promises.push(MyPromise.resolve(promise))
+      }
+      if (size === 0) {
+        resolve(result)
+        return
+      }
+      promises.forEach((p, i) => {
+        p.then((value) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            value: value
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        }, (reason) => {
+          complete++
+          result[i] = {
+            status: p._status,
+            reason: reason
+          }
+          if (size === complete) {
+            resolve(result)
+          }
+        })
+      })
+    })
+  }
+}
+```
+
+</CodeSurfer>
+
+---
+
+# Running Test Cases
+
+---
+
+<CodeSurfer>
+
+```js title="Running Test Cases"
+const promisesAplusTests = require("promises-aplus-tests")
+const { MyPromise } = require('./promise.js')
+
+const adapter = {
+  resolved: MyPromise.resolve,
+  rejected: MyPromise.reject,
+  deferred () {
+    const r = {}
+    const promise = new MyPromise((resolve, reject) => {
+      r.resolve = resolve
+      r.reject = reject
+    })
+    r.promise = promise
+    return r
+  }
+}
+
+promisesAplusTests(adapter, (err) => {
+  console.error(err)
+})
+```
+
+</CodeSurfer>
+
+---
+
+# Github Repository
+
+[https://github.com/toyobayashi/promise-deck](https://github.com/toyobayashi/promise-deck)
