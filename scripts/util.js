@@ -1,5 +1,5 @@
 const path = require('path')
-const fs = require('fs-extra')
+const fs = require('fs')
 const childProcess = require('child_process')
 
 const DECKS_DIR = getPath('decks')
@@ -88,7 +88,7 @@ async function gatsbyBuild (deck, opts) {
     const public = path.join(mdxDeckDir, 'public')
     const dist = getPath(DECKS_DIR, deck, 'public')
     if (public === dist) return
-    fs.copySync(public, dist)
+    require('fs-extra').copySync(public, dist)
   })
 }
 
