@@ -14,125 +14,20 @@ export const theme = customTheme
 
 <CodeSurfer>
 
-```cpp
-void start_redirecting_stdout_stderr() {
+```cpp file=./logcat/1.cpp
 
-}
 ```
 
-```cpp
-int pipe_stdout[2];
-int pipe_stderr[2];
+```cpp file=./logcat/2.cpp
 
-void start_redirecting_stdout_stderr() {
-  setvbuf(stdout, 0, _IONBF, 0);
-  pipe(pipe_stdout);
-  dup2(pipe_stdout[1], STDOUT_FILENO);
-
-  setvbuf(stderr, 0, _IONBF, 0);
-  pipe(pipe_stderr);
-  dup2(pipe_stderr[1], STDERR_FILENO);
-}
 ```
 
-```cpp
-int pipe_stdout[2];
-int pipe_stderr[2];
+```cpp file=./logcat/3.cpp
 
-#define LOG_TAG "NODE_EXAMPLE"
-void thread_stdout_func() {
-  ssize_t redirect_size;
-  std::string msg;
-  char buf[1024];
-  while ((redirect_size = read(pipe_stdout[0], buf, sizeof(buf) - 1)) > 0) {
-    if (redirect_size == (sizeof(buf) - 1)) {
-      buf[redirect_size] = 0;
-      msg += buf;
-    } else {
-      if (buf[redirect_size - 1] == '\n') {
-        --redirect_size;
-      }
-      buf[redirect_size] = 0;
-      msg += buf;
-      __android_log_write(ANDROID_LOG_INFO, LOG_TAG, msg.c_str());
-      msg = "";
-    }
-  }
-}
-
-void start_redirecting_stdout_stderr() {
-  setvbuf(stdout, 0, _IONBF, 0);
-  pipe(pipe_stdout);
-  dup2(pipe_stdout[1], STDOUT_FILENO);
-
-  setvbuf(stderr, 0, _IONBF, 0);
-  pipe(pipe_stderr);
-  dup2(pipe_stderr[1], STDERR_FILENO);
-
-  std::thread thread_stdout(thread_stdout_func);
-  thread_stdout.detach();
-}
 ```
 
-```cpp
-int pipe_stdout[2];
-int pipe_stderr[2];
+```cpp file=./logcat/4.cpp
 
-#define LOG_TAG "NODE_EXAMPLE"
-void thread_stdout_func() {
-  ssize_t redirect_size;
-  std::string msg;
-  char buf[1024];
-  while ((redirect_size = read(pipe_stdout[0], buf, sizeof(buf) - 1)) > 0) {
-    if (redirect_size == (sizeof(buf) - 1)) {
-      buf[redirect_size] = 0;
-      msg += buf;
-    } else {
-      if (buf[redirect_size - 1] == '\n') {
-        --redirect_size;
-      }
-      buf[redirect_size] = 0;
-      msg += buf;
-      __android_log_write(ANDROID_LOG_INFO, LOG_TAG, msg.c_str());
-      msg = "";
-    }
-  }
-}
-
-void thread_stderr_func() {
-  ssize_t redirect_size;
-  std::string msg;
-  char buf[1024];
-  while ((redirect_size = read(pipe_stderr[0], buf, sizeof(buf) - 1)) > 0) {
-    if (redirect_size == (sizeof(buf) - 1)) {
-      buf[redirect_size] = 0;
-      msg += buf;
-    } else {
-      if (buf[redirect_size - 1] == '\n') {
-        --redirect_size;
-      }
-      buf[redirect_size] = 0;
-      msg += buf;
-      __android_log_write(ANDROID_LOG_ERROR, LOG_TAG, msg.c_str());
-      msg = "";
-    }
-  }
-}
-
-void start_redirecting_stdout_stderr() {
-  setvbuf(stdout, 0, _IONBF, 0);
-  pipe(pipe_stdout);
-  dup2(pipe_stdout[1], STDOUT_FILENO);
-
-  setvbuf(stderr, 0, _IONBF, 0);
-  pipe(pipe_stderr);
-  dup2(pipe_stderr[1], STDERR_FILENO);
-
-  std::thread thread_stdout(thread_stdout_func);
-  std::thread thread_stderr(thread_stderr_func);
-  thread_stdout.detach();
-  thread_stderr.detach();
-}
 ```
 
 ```diff
@@ -151,156 +46,64 @@ void start_redirecting_stdout_stderr() {
 
 <Step>
 
-```java
-public class NodeJs {
-  static {
-    System.loadLibrary("native-lib");
-  }
-}
+```java file=./init/1-1.java
+
 ```
 
-```cpp
-class NodeJs final {
+```cpp file=./init/1-2.cpp
 
-};
 ```
 
-```cpp
-#include <jni.h>
+```cpp file=./init/1-3.cpp
+
 ```
 
 </Step>
 
 <Step>
 
-```java
-public class NodeJs {
-  static {
-    System.loadLibrary("native-lib");
-  }
+```java file=./init/2-1.java
 
-  public native static int initialize();
-  public native static void shutdown();
-}
 ```
 
-```cpp
-class NodeJs final {
- public:
-  static int Initialize();
-  static void Shutdown();
-};
+```cpp file=./init/2-2.cpp
+
 ```
 
-```cpp
-#include <jni.h>
+```cpp file=./init/2-3.cpp
 
-extern "C" JNIEXPORT jint JNICALL
-Java_package_NodeJs_initialize(JNIEnv *env, jclass clazz) {
-  start_redirecting_stdout_stderr();
-  return NodeInstance::Initialize();
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_package_NodeJs_shutdown(JNIEnv *env, jclass clazz) {
-  NodeInstance::Shutdown();
-}
 ```
 
 </Step>
 
 <Step>
 
-```java 6:7
-public class NodeJs {
-  static {
-    System.loadLibrary("native-lib");
-  }
+```java 6:7 file=./init/3-1.java
 
-  public native static int initialize();
-  public native static void shutdown();
-}
 ```
 
-```cpp 3:5,7:8
-class NodeJs final {
- private:
-  static char* argv[2];
-  static std::unique_ptr<
-    node::MultiIsolatePlatform> platform;
- public:
-  static int Initialize();
-  static void Shutdown();
-};
+```cpp 3:5,7:8 file=./init/3-2.cpp
+
 ```
 
-```cpp
-char* NodeJs::argv[2] = { "node", nullptr };
+```cpp file=./init/3-3.cpp
 
-std::unique_ptr<node::MultiIsolatePlatform>
-NodeJs::platform(nullptr);
-
-int NodeJs::Initialize() {
-  std::vector<std::string> args(argv, argv + 1);
-  std::vector<std::string> exec_args;
-  uv_setup_args(1, argv);
-  std::vector<std::string> errors;
-  int exit_code = node::InitializeNodeWithArgs(
-    &args, &exec_args, &errors);
-  for (const std::string& error : errors)
-    fprintf(stderr, "%s: %s\n", args[0].c_str(), error.c_str());
-  if (exit_code != 0) {
-    return exit_code;
-  }
-
-  platform = node::MultiIsolatePlatform::Create(4);
-  v8::V8::InitializePlatform(platform.get());
-  v8::V8::Initialize();
-  return 0;
-}
-
-void NodeJs::Shutdown() {
-  v8::V8::Dispose();
-  v8::V8::ShutdownPlatform();
-  platform.reset();
-}
 ```
 
 </Step>
 
 <Step>
 
-```java 6
-public class NodeJs {
-  static {
-    System.loadLibrary("native-lib");
-  }
+```java 6 file=./init/3-1.java
 
-  public native static int initialize();
-  public native static void shutdown();
-}
 ```
 
-```cpp 7
-class NodeJs final {
- private:
-  static char* argv[2];
-  static std::unique_ptr<
-    node::MultiIsolatePlatform> platform;
- public:
-  static int Initialize();
-  static void Shutdown();
-};
+```cpp 7 file=./init/3-2.cpp
+
 ```
 
-```java 5
-public class App extends Application {
-  @Override
-  public void onCreate() {
-    super.onCreate();
-    NodeJs.initialize();
-  }
-}
+```java 5 file=./init/4-3.java
+
 ```
 
 </Step>
@@ -317,661 +120,72 @@ public class App extends Application {
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/1-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/1-2.cpp
+
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/2-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-
- private:
-  struct Impl;
-  Impl* impl_;
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/2-2.cpp
 
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
-struct CommonEnvironmentSetup::Impl {
-  node::MultiIsolatePlatform* platform;
-  uv_loop_t loop;
-  std::shared_ptr<node::ArrayBufferAllocator> allocator;
-  v8::Isolate* isolate;
-  DeleteFnPtr<node::IsolateData, node::FreeIsolateData> isolate_data;
-  DeleteFnPtr<node::Environment, node::FreeEnvironment> env;
-  v8::Global<v8::Context> context;
-  Impl() noexcept;
-};
-
-CommonEnvironmentSetup::Impl::Impl() noexcept:
-  platform(nullptr),
-  loop(),
-  allocator(nullptr),
-  isolate(nullptr),
-  isolate_data(nullptr),
-  env(nullptr),
-  context() {}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/3-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-
- private:
-  struct Impl;
-  Impl* impl_;
-  CommonEnvironmentSetup(
-      node::MultiIsolatePlatform*,
-      std::vector<std::string>*,
-      const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/3-2.cpp
 
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
-struct CommonEnvironmentSetup::Impl {
-  node::MultiIsolatePlatform* platform;
-  uv_loop_t loop;
-  std::shared_ptr<node::ArrayBufferAllocator> allocator;
-  v8::Isolate* isolate;
-  DeleteFnPtr<node::IsolateData, node::FreeIsolateData> isolate_data;
-  DeleteFnPtr<node::Environment, node::FreeEnvironment> env;
-  v8::Global<v8::Context> context;
-  Impl() noexcept;
-};
-
-CommonEnvironmentSetup::Impl::Impl() noexcept:
-  platform(nullptr),
-  loop(),
-  allocator(nullptr),
-  isolate(nullptr),
-  isolate_data(nullptr),
-  env(nullptr),
-  context() {}
-
-CommonEnvironmentSetup::CommonEnvironmentSetup(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    const std::function<node::Environment*(const CommonEnvironmentSetup*)>& make_env)
-  : impl_(new Impl()) {
-  if (platform == nullptr) abort();
-  if (errors == nullptr) abort();
-
-  impl_->platform = platform;
-  uv_loop_t* loop = &impl_->loop;
-
-  loop->data = nullptr;
-  int ret = uv_loop_init(loop);
-  if (ret != 0) {
-    errors->push_back(std::string("Failed to initialize loop: ") + uv_err_name(ret));
-    return;
-  }
-  loop->data = this;
-
-  impl_->allocator = node::ArrayBufferAllocator::Create();
-  impl_->isolate = node::NewIsolate(impl_->allocator, &impl_->loop, platform);
-  v8::Isolate* isolate = impl_->isolate;
-
-  {
-    v8::Locker locker(isolate);
-    v8::Isolate::Scope isolate_scope(isolate);
-    impl_->isolate_data.reset(node::CreateIsolateData(
-        isolate, loop, platform, impl_->allocator.get()));
-
-    v8::HandleScope handle_scope(isolate);
-    v8::Local<v8::Context> context = node::NewContext(isolate);
-    impl_->context.Reset(isolate, context);
-    if (context.IsEmpty()) {
-      errors->push_back("Failed to initialize V8 Context");
-      return;
-    }
-
-    v8::Context::Scope context_scope(context);
-    impl_->env.reset(make_env(this));
-  }
-}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/4-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  ~CommonEnvironmentSetup();
-
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-
- private:
-  struct Impl;
-  Impl* impl_;
-  CommonEnvironmentSetup(
-      node::MultiIsolatePlatform*,
-      std::vector<std::string>*,
-      const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/4-2.cpp
 
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
-struct CommonEnvironmentSetup::Impl {
-  node::MultiIsolatePlatform* platform;
-  uv_loop_t loop;
-  std::shared_ptr<node::ArrayBufferAllocator> allocator;
-  v8::Isolate* isolate;
-  DeleteFnPtr<node::IsolateData, node::FreeIsolateData> isolate_data;
-  DeleteFnPtr<node::Environment, node::FreeEnvironment> env;
-  v8::Global<v8::Context> context;
-  Impl() noexcept;
-};
-
-CommonEnvironmentSetup::Impl::Impl() noexcept:
-  platform(nullptr),
-  loop(),
-  allocator(nullptr),
-  isolate(nullptr),
-  isolate_data(nullptr),
-  env(nullptr),
-  context() {}
-
-CommonEnvironmentSetup::CommonEnvironmentSetup(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    const std::function<node::Environment*(const CommonEnvironmentSetup*)>& make_env)
-  : impl_(new Impl()) {
-  if (platform == nullptr) abort();
-  if (errors == nullptr) abort();
-
-  impl_->platform = platform;
-  uv_loop_t* loop = &impl_->loop;
-
-  loop->data = nullptr;
-  int ret = uv_loop_init(loop);
-  if (ret != 0) {
-    errors->push_back(std::string("Failed to initialize loop: ") + uv_err_name(ret));
-    return;
-  }
-  loop->data = this;
-
-  impl_->allocator = node::ArrayBufferAllocator::Create();
-  impl_->isolate = node::NewIsolate(impl_->allocator, &impl_->loop, platform);
-  v8::Isolate* isolate = impl_->isolate;
-
-  {
-    v8::Locker locker(isolate);
-    v8::Isolate::Scope isolate_scope(isolate);
-    impl_->isolate_data.reset(node::CreateIsolateData(
-        isolate, loop, platform, impl_->allocator.get()));
-
-    v8::HandleScope handle_scope(isolate);
-    v8::Local<v8::Context> context = node::NewContext(isolate);
-    impl_->context.Reset(isolate, context);
-    if (context.IsEmpty()) {
-      errors->push_back("Failed to initialize V8 Context");
-      return;
-    }
-
-    v8::Context::Scope context_scope(context);
-    impl_->env.reset(make_env(this));
-  }
-}
-
-CommonEnvironmentSetup::~CommonEnvironmentSetup() {
-  if (impl_->isolate != nullptr) {
-    v8::Isolate* isolate = impl_->isolate;
-    {
-      v8::Locker locker(isolate);
-      v8::Isolate::Scope isolate_scope(isolate);
-
-      impl_->context.Reset();
-      impl_->env.reset();
-      impl_->isolate_data.reset();
-    }
-
-    bool platform_finished = false;
-    impl_->platform->AddIsolateFinishedCallback(isolate, [](void* data) {
-      *static_cast<bool*>(data) = true;
-    }, &platform_finished);
-    impl_->platform->UnregisterIsolate(isolate);
-    isolate->Dispose();
-
-    while (!platform_finished)
-      uv_run(&impl_->loop, UV_RUN_ONCE);
-  }
-
-  if (impl_->isolate || impl_->loop.data != nullptr)
-    uv_loop_close(&impl_->loop);
-
-  delete impl_;
-}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/5-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  ~CommonEnvironmentSetup();
-
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-
-  struct uv_loop_s* event_loop() const;
-  std::shared_ptr<node::ArrayBufferAllocator> array_buffer_allocator() const;
-  v8::Isolate* isolate() const;
-  node::IsolateData* isolate_data() const;
-  node::Environment* env() const;
-  v8::Local<v8::Context> context() const;
-
- private:
-  struct Impl;
-  Impl* impl_;
-  CommonEnvironmentSetup(
-      node::MultiIsolatePlatform*,
-      std::vector<std::string>*,
-      const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/5-2.cpp
 
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
-struct CommonEnvironmentSetup::Impl {
-  node::MultiIsolatePlatform* platform;
-  uv_loop_t loop;
-  std::shared_ptr<node::ArrayBufferAllocator> allocator;
-  v8::Isolate* isolate;
-  DeleteFnPtr<node::IsolateData, node::FreeIsolateData> isolate_data;
-  DeleteFnPtr<node::Environment, node::FreeEnvironment> env;
-  v8::Global<v8::Context> context;
-  Impl() noexcept;
-};
-
-CommonEnvironmentSetup::Impl::Impl() noexcept:
-  platform(nullptr),
-  loop(),
-  allocator(nullptr),
-  isolate(nullptr),
-  isolate_data(nullptr),
-  env(nullptr),
-  context() {}
-
-CommonEnvironmentSetup::CommonEnvironmentSetup(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    const std::function<node::Environment*(const CommonEnvironmentSetup*)>& make_env)
-  : impl_(new Impl()) {
-  if (platform == nullptr) abort();
-  if (errors == nullptr) abort();
-
-  impl_->platform = platform;
-  uv_loop_t* loop = &impl_->loop;
-
-  loop->data = nullptr;
-  int ret = uv_loop_init(loop);
-  if (ret != 0) {
-    errors->push_back(std::string("Failed to initialize loop: ") + uv_err_name(ret));
-    return;
-  }
-  loop->data = this;
-
-  impl_->allocator = node::ArrayBufferAllocator::Create();
-  impl_->isolate = node::NewIsolate(impl_->allocator, &impl_->loop, platform);
-  v8::Isolate* isolate = impl_->isolate;
-
-  {
-    v8::Locker locker(isolate);
-    v8::Isolate::Scope isolate_scope(isolate);
-    impl_->isolate_data.reset(node::CreateIsolateData(
-        isolate, loop, platform, impl_->allocator.get()));
-
-    v8::HandleScope handle_scope(isolate);
-    v8::Local<v8::Context> context = node::NewContext(isolate);
-    impl_->context.Reset(isolate, context);
-    if (context.IsEmpty()) {
-      errors->push_back("Failed to initialize V8 Context");
-      return;
-    }
-
-    v8::Context::Scope context_scope(context);
-    impl_->env.reset(make_env(this));
-  }
-}
-
-CommonEnvironmentSetup::~CommonEnvironmentSetup() {
-  if (impl_->isolate != nullptr) {
-    v8::Isolate* isolate = impl_->isolate;
-    {
-      v8::Locker locker(isolate);
-      v8::Isolate::Scope isolate_scope(isolate);
-
-      impl_->context.Reset();
-      impl_->env.reset();
-      impl_->isolate_data.reset();
-    }
-
-    bool platform_finished = false;
-    impl_->platform->AddIsolateFinishedCallback(isolate, [](void* data) {
-      *static_cast<bool*>(data) = true;
-    }, &platform_finished);
-    impl_->platform->UnregisterIsolate(isolate);
-    isolate->Dispose();
-
-    while (!platform_finished)
-      uv_run(&impl_->loop, UV_RUN_ONCE);
-  }
-
-  if (impl_->isolate || impl_->loop.data != nullptr)
-    uv_loop_close(&impl_->loop);
-
-  delete impl_;
-}
-
-uv_loop_t* CommonEnvironmentSetup::event_loop() const {
-  return &impl_->loop;
-}
-
-std::shared_ptr<node::ArrayBufferAllocator>
-CommonEnvironmentSetup::array_buffer_allocator() const {
-  return impl_->allocator;
-}
-
-v8::Isolate* CommonEnvironmentSetup::isolate() const {
-  return impl_->isolate;
-}
-
-node::IsolateData* CommonEnvironmentSetup::isolate_data() const {
-  return impl_->isolate_data.get();
-}
-
-node::Environment* CommonEnvironmentSetup::env() const {
-  return impl_->env.get();
-}
-
-v8::Local<v8::Context> CommonEnvironmentSetup::context() const {
-  return impl_->context.Get(impl_->isolate);
-}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-#include <memory>
-#include <vector>
-#include <string>
-#include <functional>
-#include "node.h"
-#include "uv.h"
+```cpp file=./env/6-1.cpp
 
-class CommonEnvironmentSetup final {
- public:
-  ~CommonEnvironmentSetup();
-
-  CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup& operator=(const CommonEnvironmentSetup&) = delete;
-  CommonEnvironmentSetup(CommonEnvironmentSetup&&) = delete;
-  CommonEnvironmentSetup& operator=(CommonEnvironmentSetup&&) = delete;
-
-  struct uv_loop_s* event_loop() const;
-  std::shared_ptr<node::ArrayBufferAllocator> array_buffer_allocator() const;
-  v8::Isolate* isolate() const;
-  node::IsolateData* isolate_data() const;
-  node::Environment* env() const;
-  v8::Local<v8::Context> context() const;
-  
-  template <typename... EnvironmentArgs>
-  static std::unique_ptr<CommonEnvironmentSetup> Create(
-      node::MultiIsolatePlatform* platform,
-      std::vector<std::string>* errors,
-      EnvironmentArgs&&... env_args);
-
- private:
-  struct Impl;
-  Impl* impl_;
-  CommonEnvironmentSetup(
-      node::MultiIsolatePlatform*,
-      std::vector<std::string>*,
-      const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
-};
 ```
 
-```cpp
-#include <cstdlib>
-#include <cstdio>
-#include "env.hpp"
+```cpp file=./env/6-2.cpp
 
-template <typename T, void (*function)(T*)>
-using DeleteFnPtr = typename FunctionDeleter<T, function>::Pointer;
-
-struct CommonEnvironmentSetup::Impl {
-  node::MultiIsolatePlatform* platform;
-  uv_loop_t loop;
-  std::shared_ptr<node::ArrayBufferAllocator> allocator;
-  v8::Isolate* isolate;
-  DeleteFnPtr<node::IsolateData, node::FreeIsolateData> isolate_data;
-  DeleteFnPtr<node::Environment, node::FreeEnvironment> env;
-  v8::Global<v8::Context> context;
-  Impl() noexcept;
-};
-
-CommonEnvironmentSetup::Impl::Impl() noexcept:
-  platform(nullptr),
-  loop(),
-  allocator(nullptr),
-  isolate(nullptr),
-  isolate_data(nullptr),
-  env(nullptr),
-  context() {}
-
-CommonEnvironmentSetup::CommonEnvironmentSetup(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    const std::function<node::Environment*(const CommonEnvironmentSetup*)>& make_env)
-  : impl_(new Impl()) {
-  if (platform == nullptr) abort();
-  if (errors == nullptr) abort();
-
-  impl_->platform = platform;
-  uv_loop_t* loop = &impl_->loop;
-
-  loop->data = nullptr;
-  int ret = uv_loop_init(loop);
-  if (ret != 0) {
-    errors->push_back(std::string("Failed to initialize loop: ") + uv_err_name(ret));
-    return;
-  }
-  loop->data = this;
-
-  impl_->allocator = node::ArrayBufferAllocator::Create();
-  impl_->isolate = node::NewIsolate(impl_->allocator, &impl_->loop, platform);
-  v8::Isolate* isolate = impl_->isolate;
-
-  {
-    v8::Locker locker(isolate);
-    v8::Isolate::Scope isolate_scope(isolate);
-    impl_->isolate_data.reset(node::CreateIsolateData(
-        isolate, loop, platform, impl_->allocator.get()));
-
-    v8::HandleScope handle_scope(isolate);
-    v8::Local<v8::Context> context = node::NewContext(isolate);
-    impl_->context.Reset(isolate, context);
-    if (context.IsEmpty()) {
-      errors->push_back("Failed to initialize V8 Context");
-      return;
-    }
-
-    v8::Context::Scope context_scope(context);
-    impl_->env.reset(make_env(this));
-  }
-}
-
-CommonEnvironmentSetup::~CommonEnvironmentSetup() {
-  if (impl_->isolate != nullptr) {
-    v8::Isolate* isolate = impl_->isolate;
-    {
-      v8::Locker locker(isolate);
-      v8::Isolate::Scope isolate_scope(isolate);
-
-      impl_->context.Reset();
-      impl_->env.reset();
-      impl_->isolate_data.reset();
-    }
-
-    bool platform_finished = false;
-    impl_->platform->AddIsolateFinishedCallback(isolate, [](void* data) {
-      *static_cast<bool*>(data) = true;
-    }, &platform_finished);
-    impl_->platform->UnregisterIsolate(isolate);
-    isolate->Dispose();
-
-    while (!platform_finished)
-      uv_run(&impl_->loop, UV_RUN_ONCE);
-  }
-
-  if (impl_->isolate || impl_->loop.data != nullptr)
-    uv_loop_close(&impl_->loop);
-
-  delete impl_;
-}
-
-uv_loop_t* CommonEnvironmentSetup::event_loop() const {
-  return &impl_->loop;
-}
-
-std::shared_ptr<node::ArrayBufferAllocator>
-CommonEnvironmentSetup::array_buffer_allocator() const {
-  return impl_->allocator;
-}
-
-v8::Isolate* CommonEnvironmentSetup::isolate() const {
-  return impl_->isolate;
-}
-
-node::IsolateData* CommonEnvironmentSetup::isolate_data() const {
-  return impl_->isolate_data.get();
-}
-
-node::Environment* CommonEnvironmentSetup::env() const {
-  return impl_->env.get();
-}
-
-v8::Local<v8::Context> CommonEnvironmentSetup::context() const {
-  return impl_->context.Get(impl_->isolate);
-}
-
-// Write in header file
-template <typename... EnvironmentArgs>
-std::unique_ptr<CommonEnvironmentSetup> CommonEnvironmentSetup::Create(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    EnvironmentArgs&&... env_args) {
-  auto ret = std::unique_ptr<CommonEnvironmentSetup>(new CommonEnvironmentSetup(
-      platform, errors,
-      [&](const CommonEnvironmentSetup* setup) -> node::Environment* {
-        return node::CreateEnvironment(
-            setup->isolate_data(), setup->context(),
-            std::forward<EnvironmentArgs>(env_args)...);
-      }));
-  if (!errors->empty()) ret.reset();
-  return ret;
-}
 ```
 
 </Step>
@@ -988,268 +202,192 @@ std::unique_ptr<CommonEnvironmentSetup> CommonEnvironmentSetup::Create(
 
 <Step>
 
-```cpp
-class NodeJs final {
- private:
-  static char* argv[2];
-  static std::unique_ptr<
-    node::MultiIsolatePlatform> platform;
- public:
-  static int Initialize();
-  static void Shutdown();
-};
+```cpp file=./init/3-2.cpp
+
 ```
 
-```cpp
-char* NodeJs::argv[2] = { "node", nullptr };
+```cpp file=./init/3-3.cpp
 
-std::unique_ptr<node::MultiIsolatePlatform>
-NodeJs::platform(nullptr);
-
-int NodeJs::Initialize() {
-  std::vector<std::string> args(argv, argv + 1);
-  std::vector<std::string> exec_args;
-  uv_setup_args(1, argv);
-  std::vector<std::string> errors;
-  int exit_code = node::InitializeNodeWithArgs(
-    &args, &exec_args, &errors);
-  for (const std::string& error : errors)
-    fprintf(stderr, "%s: %s\n", args[0].c_str(), error.c_str());
-  if (exit_code != 0) {
-    return exit_code;
-  }
-
-  platform = node::MultiIsolatePlatform::Create(4);
-  v8::V8::InitializePlatform(platform.get());
-  v8::V8::Initialize();
-  return 0;
-}
-
-void NodeJs::Shutdown() {
-  v8::V8::Dispose();
-  v8::V8::ShutdownPlatform();
-  platform.reset();
-}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-class NodeJs final {
- private:
-  int exit_;
-  void* priv_;
-  node_embed_helpers::CommonEnvironmentSetup* setup_;
-  std::vector<std::string> args_;
-  std::vector<std::string> exec_args_;
-  NodeJs() noexcept;
-  NodeJs(std::vector<std::string> args,
-         std::vector<std::string> exec_args,
-         void* priv = nullptr) noexcept;
+```cpp file=./instance/2-1.cpp
 
-  static char* argv[2];
-  static std::unique_ptr<
-    node::MultiIsolatePlatform> platform;
- public:
-  static int Initialize();
-  static void Shutdown();
-
-  NodeJs(const NodeJs&) = delete;
-  NodeJs& operator=(const NodeJs&) = delete;
-  NodeJs(NodeJs&&) = delete;
-  NodeJs& operator=(NodeJs&&) = delete;
-};
 ```
 
-```cpp
-char* NodeJs::argv[2] = { "node", nullptr };
+```cpp file=./instance/2-2.cpp
 
-std::unique_ptr<node::MultiIsolatePlatform>
-NodeJs::platform(nullptr);
-
-int NodeJs::Initialize() {
-  std::vector<std::string> args(argv, argv + 1);
-  std::vector<std::string> exec_args;
-  uv_setup_args(1, argv);
-  std::vector<std::string> errors;
-  int exit_code = node::InitializeNodeWithArgs(
-    &args, &exec_args, &errors);
-  for (const std::string& error : errors)
-    fprintf(stderr, "%s: %s\n", args[0].c_str(), error.c_str());
-  if (exit_code != 0) {
-    return exit_code;
-  }
-
-  platform = node::MultiIsolatePlatform::Create(4);
-  v8::V8::InitializePlatform(platform.get());
-  v8::V8::Initialize();
-  return 0;
-}
-
-void NodeJs::Shutdown() {
-  v8::V8::Dispose();
-  v8::V8::ShutdownPlatform();
-  platform.reset();
-}
-
-NodeJs::NodeJs() noexcept:
-  exit_(0),
-  setup_(nullptr),
-  args_({ "node" }),
-  exec_args_() {
-  std::vector<std::string> errors;
-  setup_ = node_embed_helpers::CommonEnvironmentSetup::Create(
-    platform.get(), &errors, args_, exec_args_).release();
-  if (!errors.empty()) {
-    abort();
-  }
-}
-
-NodeJs::NodeJs(std::vector<std::string> args,
-               std::vector<std::string> exec_args,
-               void* priv) noexcept:
-  exit_(0),
-  priv_(priv),
-  setup_(nullptr),
-  args_(std::move(args)),
-  exec_args_(std::move(exec_args)) {
-  std::vector<std::string> errors;
-  setup_ = node_embed_helpers::CommonEnvironmentSetup::Create(
-    platform.get(), &errors, args_, exec_args_).release();
-  if (!errors.empty()) {
-    abort();
-  }
-}
 ```
 
 </Step>
 
 <Step>
 
-```cpp
-class NodeJs final {
- private:
-  int exit_;
-  void* priv_;
-  node_embed_helpers::CommonEnvironmentSetup* setup_;
-  std::vector<std::string> args_;
-  std::vector<std::string> exec_args_;
-  NodeJs() noexcept;
-  NodeJs(std::vector<std::string> args,
-         std::vector<std::string> exec_args,
-         void* priv = nullptr) noexcept;
+```cpp file=./instance/3-1.cpp
 
-  static char* argv[2];
-  static std::unique_ptr<
-    node::MultiIsolatePlatform> platform;
- public:
-  static int Initialize();
-  static void Shutdown();
-
-  ~NodeJs();
-
-  NodeJs(const NodeJs&) = delete;
-  NodeJs& operator=(const NodeJs&) = delete;
-  NodeJs(NodeJs&&) = delete;
-  NodeJs& operator=(NodeJs&&) = delete;
-
-  int Dispose();
-  void* Data() const noexcept;
-};
 ```
 
-```cpp
-char* NodeJs::argv[2] = { "node", nullptr };
+```cpp file=./instance/3-2.cpp
 
-std::unique_ptr<node::MultiIsolatePlatform>
-NodeJs::platform(nullptr);
+```
 
-int NodeJs::Initialize() {
-  std::vector<std::string> args(argv, argv + 1);
-  std::vector<std::string> exec_args;
-  uv_setup_args(1, argv);
-  std::vector<std::string> errors;
-  int exit_code = node::InitializeNodeWithArgs(
-    &args, &exec_args, &errors);
-  for (const std::string& error : errors)
-    fprintf(stderr, "%s: %s\n", args[0].c_str(), error.c_str());
-  if (exit_code != 0) {
-    return exit_code;
-  }
+</Step>
 
-  platform = node::MultiIsolatePlatform::Create(4);
-  v8::V8::InitializePlatform(platform.get());
-  v8::V8::Initialize();
-  return 0;
-}
+<Step>
 
-void NodeJs::Shutdown() {
-  v8::V8::Dispose();
-  v8::V8::ShutdownPlatform();
-  platform.reset();
-}
+```cpp file=./instance/4-1.cpp
 
-NodeJs::NodeJs() noexcept:
-  exit_(0),
-  setup_(nullptr),
-  args_({ "node" }),
-  exec_args_() {
-  std::vector<std::string> errors;
-  setup_ = node_embed_helpers::CommonEnvironmentSetup::Create(
-    platform.get(), &errors, args_, exec_args_).release();
-  if (!errors.empty()) {
-    abort();
-  }
-}
+```
 
-NodeJs::NodeJs(std::vector<std::string> args,
-               std::vector<std::string> exec_args,
-               void* priv) noexcept:
-  exit_(0),
-  priv_(priv),
-  setup_(nullptr),
-  args_(std::move(args)),
-  exec_args_(std::move(exec_args)) {
-  std::vector<std::string> errors;
-  setup_ = node_embed_helpers::CommonEnvironmentSetup::Create(
-    platform.get(), &errors, args_, exec_args_).release();
-  if (!errors.empty()) {
-    abort();
-  }
-}
+```cpp file=./instance/4-2.cpp
 
-int NodeJs::Dispose() {
-  if (setup_ == nullptr) {
-    return exit_;
-  }
-  v8::Isolate* isolate = setup_->isolate();
-  node::Environment* env = setup_->env();
-  if (exit_ == 0) {
-    v8::Locker locker(isolate);
-    v8::Isolate::Scope isolate_scope(isolate);
+```
 
-    node::EmitBeforeExit(env);
-    this->SpinEventLoop();
-    exit_ = node::EmitExit(env);
-    node::Stop(env);
-  }
-  delete setup_;
-  setup_ = nullptr;
-  return exit_;
-}
+</Step>
 
-NodeJs::~NodeJs() {
-  this->Dispose();
-}
+<Step>
 
-void* NodeJs::Data() const noexcept {
-  return priv_;
-}
+```cpp file=./instance/5-1.cpp
+
+```
+
+```cpp file=./instance/5-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 17:20,36:40 file=./instance/6-1.cpp
+
+```
+
+```cpp file=./instance/6-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 13:18,24:29,45:49 file=./instance/7-1.cpp
+
+```
+
+```cpp file=./instance/7-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 24:29 file=./instance/8-1.cpp
+
+```
+
+```cpp file=./instance/8-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./instance/9-1.cpp
+
+```
+
+```cpp file=./instance/9-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./instance/10-1.cpp
+
+```
+
+```cpp file=./instance/10-2.cpp
+
 ```
 
 </Step>
 
 </CodeSurferColumns>
 
+---
+
+# Linked Binding
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```cpp 124,169 file=./instance/10-2.cpp
+
+```
+
+```cpp file=./binding/1-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 124,169 file=./instance/10-2.cpp
+
+```
+
+```cpp file=./binding/2-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 124,169 file=./instance/10-2.cpp
+
+```
+
+```cpp file=./binding/3-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 124,169 file=./instance/10-2.cpp
+
+```
+
+```cpp file=./binding/4-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp 124,169 file=./instance/10-2.cpp
+
+```
+
+```cpp file=./binding/5-2.cpp
+
+```
+
+</Step>
+
+</CodeSurferColumns>

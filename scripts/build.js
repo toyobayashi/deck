@@ -23,17 +23,17 @@ class BuildError extends Error {
 }
 
 async function main (argv) {
-  let patched = false
-  const deckjs = getPath('node_modules/@mdx-deck/gatsby-plugin/src/deck.js')
-  const deckjsBackup = getPath('node_modules/@mdx-deck/gatsby-plugin/src/deck.js.backup')
-  if (fs.existsSync(deckjsBackup)) {
-    patched = true
-  } else {
-    fs.copySync(deckjs, deckjsBackup)
-    let code = fs.readFileSync(deckjs, 'utf8')
-    code = code.replace(/props\.navigate\('\/#' \+ index/, "props.navigate(props.location.pathname + '#' + index")
-    fs.writeFileSync(deckjs, code, 'utf8')
-  }
+  // let patched = false
+  // const deckjs = getPath('node_modules/@mdx-deck/gatsby-plugin/src/deck.js')
+  // const deckjsBackup = getPath('node_modules/@mdx-deck/gatsby-plugin/src/deck.js.backup')
+  // if (fs.existsSync(deckjsBackup)) {
+  //   patched = true
+  // } else {
+  //   fs.copySync(deckjs, deckjsBackup)
+  //   let code = fs.readFileSync(deckjs, 'utf8')
+  //   code = code.replace(/props\.navigate\('\/#' \+ index/, "props.navigate(props.location.pathname + '#' + index")
+  //   fs.writeFileSync(deckjs, code, 'utf8')
+  // }
   const items = await fs.promises.readdir(DECKS_DIR)
   const successed = []
   if (argv.length) {
@@ -65,7 +65,7 @@ async function main (argv) {
 </head>
 <body>
   <ul>
-    ${successed.map(deck => `    <li><a href="./${deck}/index.html">${deck}</a></li>`).join('\n')}
+    ${successed.map(deck => `    <li><a href="./${deck}/">${deck}</a></li>`).join('\n')}
   </ul>
 </body>
 </html>

@@ -13,6 +13,8 @@
     "code-surfer": "3.1.1",
     "cross-env": "^7.0.3",
     "fs-extra": "^10.0.0",
-    "mdx-deck": "4.1.1"
+    "mdx-deck": "3.0.10",
+    "react": "^16.8.0",
+    "react-dom": "^16.8.0"
   }
 }
