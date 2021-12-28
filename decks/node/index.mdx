@@ -6,6 +6,8 @@ export const theme = customTheme
 
 # 在 Android 应用中嵌入 Node.js
 
+Press arrow key to start
+
 ---
 
 # 重定向输出流到 Logcat
@@ -44,7 +46,7 @@ export const theme = customTheme
 
 <CodeSurferColumns sizes={[1,1,2]}>
 
-<Step>
+<Step subtitle="JNI">
 
 ```java file=./init/1-1.java
 
@@ -60,7 +62,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="JNI">
 
 ```java file=./init/2-1.java
 
@@ -76,7 +78,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="用假的全局命令行参数初始化 libuv、node、v8">
 
 ```java 6:7 file=./init/3-1.java
 
@@ -92,7 +94,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="在 Application 生命周期中初始化">
 
 ```java 6 file=./init/3-1.java
 
@@ -108,6 +110,22 @@ export const theme = customTheme
 
 </Step>
 
+<Step>
+
+```diff
+
+```
+
+```diff
+
+```
+
+```diff
+
+```
+
+</Step>
+
 </CodeSurferColumns>
 
 ---
@@ -118,7 +136,7 @@ export const theme = customTheme
 
 <CodeSurferColumns sizes={[3,4]}>
 
-<Step>
+<Step subtitle="不可拷贝不可移动">
 
 ```cpp file=./env/1-1.cpp
 
@@ -130,7 +148,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="使用 PIMPL 分离实现">
 
 ```cpp file=./env/2-1.cpp
 
@@ -142,7 +160,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="私有构造函数中初始化 libuv 循环，创建 v8 Isolate 和 v8 Context，绑定一个 Node Environment">
 
 ```cpp file=./env/3-1.cpp
 
@@ -154,7 +172,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="析构函数中释放资源，确保 libuv 循环没任务了才关闭循环">
 
 ```cpp file=./env/4-1.cpp
 
@@ -166,7 +184,7 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="公有 Getters">
 
 ```cpp file=./env/5-1.cpp
 
@@ -178,13 +196,25 @@ export const theme = customTheme
 
 </Step>
 
-<Step>
+<Step subtitle="工厂函数，把 node::CreateEnvironment 传给构造函数">
 
 ```cpp file=./env/6-1.cpp
 
 ```
 
 ```cpp file=./env/6-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```diff
+
+```
+
+```diff
 
 ```
 
@@ -320,6 +350,18 @@ export const theme = customTheme
 
 </Step>
 
+<Step>
+
+```diff
+
+```
+
+```diff
+
+```
+
+</Step>
+
 </CodeSurferColumns>
 
 ---
@@ -390,4 +432,152 @@ export const theme = customTheme
 
 </Step>
 
+<Step>
+
+```diff
+
+```
+
+```diff
+
+```
+
+</Step>
+
 </CodeSurferColumns>
+
+---
+
+# JNI
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```cpp file=./jni/1-1.java
+
+```
+
+```cpp file=./jni/1-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/2-1.java
+
+```
+
+```cpp file=./jni/2-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/3-1.java
+
+```
+
+```cpp file=./jni/3-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/4-1.java
+
+```
+
+```cpp file=./jni/4-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/5-1.java
+
+```
+
+```cpp file=./jni/5-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/6-1.java
+
+```
+
+```cpp file=./jni/6-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/7-1.java
+
+```
+
+```cpp file=./jni/7-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/8-1.java
+
+```
+
+```cpp file=./jni/8-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./jni/9-1.java
+
+```
+
+```cpp file=./jni/9-2.cpp
+
+```
+
+</Step>
+
+<Step>
+
+```diff
+
+```
+
+```diff
+
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# Repository
+
+[https://gitee.com/toyobayashi/NodeExample](https://gitee.com/toyobayashi/NodeExample)

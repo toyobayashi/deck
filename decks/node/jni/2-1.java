@@ -1,0 +1,23 @@
+public class NodeJs {
+  static {
+    System.loadLibrary("native-lib");
+  }
+
+  private long nativePointer;
+
+  private NodeJs (long pointer) {
+    nativePointer = pointer;
+  }
+
+  public long getNativePointer() {
+    return nativePointer;
+  }
+
+  public static NodeJs create() throws Exception {
+    return new NodeJs(createInstance());
+  }
+  private native static long createInstance() throws Exception;
+
+  public native static int initialize();
+  public native static void shutdown();
+}

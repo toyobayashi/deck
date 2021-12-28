@@ -111,7 +111,6 @@ NodeJs* NodeJs::Create(const std::vector<std::string>& args,
                        std::string* err,
                        void* priv) {
   std::unique_ptr<NodeJs> node_instance(new NodeJs(args, exec_args, priv));
-  UncaughtExceptionCallbackData uncaught_callback_data(node_instance.get(), err);
 
   v8::Isolate* isolate = node_instance->setup_->isolate();
   v8::Locker locker(isolate);
@@ -122,6 +121,8 @@ NodeJs* NodeJs::Create(const std::vector<std::string>& args,
   node::Environment* env = node_instance->setup_->env();
 
   node::AddLinkedBinding(env, "android", Init, priv);
+
+  UncaughtExceptionCallbackData uncaught_callback_data(node_instance.get(), err);
 
   v8::TryCatch trycatch(isolate);
   v8::MaybeLocal<v8::Value> loadenv_ret;
