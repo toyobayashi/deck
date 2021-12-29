@@ -5,6 +5,8 @@
 #include "node.h"
 #include "uv.h"
 
+namespace node_embed_helpers {
+
 class CommonEnvironmentSetup final {
  public:
   ~CommonEnvironmentSetup();
@@ -20,7 +22,7 @@ class CommonEnvironmentSetup final {
   node::IsolateData* isolate_data() const;
   node::Environment* env() const;
   v8::Local<v8::Context> context() const;
-  
+
   template <typename... EnvironmentArgs>
   static std::unique_ptr<CommonEnvironmentSetup> Create(
       node::MultiIsolatePlatform* platform,
@@ -35,3 +37,21 @@ class CommonEnvironmentSetup final {
       std::vector<std::string>*,
       const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
 };
+
+template <typename... EnvironmentArgs>
+std::unique_ptr<CommonEnvironmentSetup> CommonEnvironmentSetup::Create(
+    node::MultiIsolatePlatform* platform,
+    std::vector<std::string>* errors,
+    EnvironmentArgs&&... env_args) {
+  auto ret = std::unique_ptr<CommonEnvironmentSetup>(new CommonEnvironmentSetup(
+      platform, errors,
+      [&](const CommonEnvironmentSetup* setup) -> node::Environment* {
+        return node::CreateEnvironment(
+            setup->isolate_data(), setup->context(),
+            std::forward<EnvironmentArgs>(env_args)...);
+      }));
+  if (!errors->empty()) ret.reset();
+  return ret;
+}
+
+}  // node_embed_helpers

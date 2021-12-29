@@ -30,6 +30,7 @@ void NodeJs::Shutdown() {
 
 NodeJs::NodeJs() noexcept:
   exit_(0),
+  priv_(nullptr),
   setup_(nullptr),
   args_({ "node" }),
   exec_args_() {
@@ -120,6 +121,7 @@ NodeJs* NodeJs::Create(const std::vector<std::string>& args,
   v8::Context::Scope context_scope(context);
   node::Environment* env = node_instance->setup_->env();
 
+  // process._linkedBinding('android')
   node::AddLinkedBinding(env, "android", Init, priv);
 
   v8::TryCatch trycatch(isolate);

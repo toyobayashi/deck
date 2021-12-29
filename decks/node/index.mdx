@@ -6,7 +6,7 @@ export const theme = customTheme
 
 # 在 Android 应用中嵌入 Node.js
 
-Press arrow key to start
+按方向键开始
 
 ---
 
@@ -94,9 +94,9 @@ Press arrow key to start
 
 </Step>
 
-<Step subtitle="在 Application 生命周期中初始化">
+<Step subtitle="在 Application 生命周期中初始化，只能初始化一次">
 
-```java 6 file=./init/3-1.java
+```java 6,10:16 file=./init/4-1.java
 
 ```
 
@@ -104,7 +104,7 @@ Press arrow key to start
 
 ```
 
-```java 5 file=./init/4-3.java
+```java 6:23 file=./init/3-3.cpp
 
 ```
 
@@ -160,7 +160,7 @@ Press arrow key to start
 
 </Step>
 
-<Step subtitle="私有构造函数中初始化 libuv 循环，创建 v8 Isolate 和 v8 Context，绑定一个 Node Environment">
+<Step subtitle="私有构造函数中初始化 uv_loop_t，创建 v8::Isolate、v8::Context、node::Environment">
 
 ```cpp file=./env/3-1.cpp
 
@@ -172,19 +172,19 @@ Press arrow key to start
 
 </Step>
 
-<Step subtitle="析构函数中释放资源，确保 libuv 循环没任务了才关闭循环">
+<Step subtitle="公有静态工厂函数模板，把 node::CreateEnvironment 传给构造函数">
 
 ```cpp file=./env/4-1.cpp
 
 ```
 
-```cpp file=./env/4-2.cpp
+```cpp 28:68 file=./env/4-2.cpp
 
 ```
 
 </Step>
 
-<Step subtitle="公有 Getters">
+<Step subtitle="析构函数中释放资源，确保 libuv 循环没任务了才关闭循环">
 
 ```cpp file=./env/5-1.cpp
 
@@ -196,7 +196,7 @@ Press arrow key to start
 
 </Step>
 
-<Step subtitle="工厂函数，把 node::CreateEnvironment 传给构造函数">
+<Step subtitle="公有 Getters">
 
 ```cpp file=./env/6-1.cpp
 
@@ -242,7 +242,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="不可拷贝不可移动，私有构造函数创建 CommonEnvironmentSetup">
 
 ```cpp file=./instance/2-1.cpp
 
@@ -254,7 +254,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="启动 libuv 循环">
 
 ```cpp file=./instance/3-1.cpp
 
@@ -266,7 +266,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="销毁、析构，触发 process 的 beforeExit 和 exit 事件">
 
 ```cpp file=./instance/4-1.cpp
 
@@ -278,7 +278,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="公有静态工厂函数">
 
 ```cpp file=./instance/5-1.cpp
 
@@ -290,7 +290,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="无参启动，方便多次运行 JS 脚本，把 require 函数挂在全局">
 
 ```cpp 17:20,36:40 file=./instance/6-1.cpp
 
@@ -302,7 +302,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="实现运行入口 JS 文件，调用 require('module')._load 后立刻启动事件循环">
 
 ```cpp 13:18,24:29,45:49 file=./instance/7-1.cpp
 
@@ -314,7 +314,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="处理全局 uncaughtException 防止 APP 崩溃">
 
 ```cpp 24:29 file=./instance/8-1.cpp
 
@@ -326,7 +326,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="静态方法运行入口脚本">
 
 ```cpp file=./instance/9-1.cpp
 
@@ -338,7 +338,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="实例方法运行 JS 脚本字符串">
 
 ```cpp file=./instance/10-1.cpp
 
@@ -350,7 +350,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="">
 
 ```diff
 
@@ -372,9 +372,9 @@ Press arrow key to start
 
 <CodeSurferColumns>
 
-<Step>
+<Step subtitle="Linked Binding 模块初始化函数">
 
-```cpp 124,169 file=./instance/10-2.cpp
+```cpp 124:125 file=./instance/10-2.cpp
 
 ```
 
@@ -384,9 +384,9 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="exports.toast = function (message) {}">
 
-```cpp 124,169 file=./instance/10-2.cpp
+```cpp 124:125 file=./instance/10-2.cpp
 
 ```
 
@@ -396,9 +396,9 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="JNI 获取 Application 实例，传入 Toast.makeText">
 
-```cpp 124,169 file=./instance/10-2.cpp
+```cpp 124:125 file=./instance/10-2.cpp
 
 ```
 
@@ -408,9 +408,9 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="exports.androidLogd = function (str) {}">
 
-```cpp 124,169 file=./instance/10-2.cpp
+```cpp 124:125 file=./instance/10-2.cpp
 
 ```
 
@@ -420,9 +420,9 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="exports.androidLoge = function (str) {}">
 
-```cpp 124,169 file=./instance/10-2.cpp
+```cpp 124:125 file=./instance/10-2.cpp
 
 ```
 
@@ -466,7 +466,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="Java 类中保存 C++ 的指针">
 
 ```cpp file=./jni/2-1.java
 
@@ -478,7 +478,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="dispose & finalize">
 
 ```cpp file=./jni/3-1.java
 
@@ -490,7 +490,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行入口 JS 脚本文件">
 
 ```cpp file=./jni/4-1.java
 
@@ -502,7 +502,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行 JS 脚本字符串返回 void">
 
 ```cpp file=./jni/5-1.java
 
@@ -514,7 +514,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行 JS 脚本字符串返回 boolean">
 
 ```cpp file=./jni/6-1.java
 
@@ -526,7 +526,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行 JS 脚本字符串返回 int">
 
 ```cpp file=./jni/7-1.java
 
@@ -538,7 +538,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行 JS 脚本字符串返回 double">
 
 ```cpp file=./jni/8-1.java
 
@@ -550,7 +550,7 @@ Press arrow key to start
 
 </Step>
 
-<Step>
+<Step subtitle="运行 JS 脚本字符串返回 String">
 
 ```cpp file=./jni/9-1.java
 
@@ -578,6 +578,40 @@ Press arrow key to start
 
 ---
 
-# Repository
+# 使用
+
+---
+
+<CodeSurfer>
+
+```java file=./usage/1.java subtitle="MainActivity"
+
+```
+
+```java file=./usage/2.java subtitle="NodeJs 实例化"
+
+```
+
+```java file=./usage/3.java subtitle="加两个按钮"
+
+```
+
+```java file=./usage/4.java subtitle="运行 JS 脚本字符串"
+
+```
+
+```java file=./usage/5.java subtitle="运行入口 JS 脚本文件并传入命令行参数"
+
+```
+
+```diff
+
+```
+
+</CodeSurfer>
+
+---
+
+# 源码仓库
 
 [https://gitee.com/toyobayashi/NodeExample](https://gitee.com/toyobayashi/NodeExample)

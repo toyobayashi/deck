@@ -66,32 +66,3 @@ CommonEnvironmentSetup::CommonEnvironmentSetup(
     impl_->env.reset(make_env(this));
   }
 }
-
-CommonEnvironmentSetup::~CommonEnvironmentSetup() {
-  if (impl_->isolate != nullptr) {
-    v8::Isolate* isolate = impl_->isolate;
-    {
-      v8::Locker locker(isolate);
-      v8::Isolate::Scope isolate_scope(isolate);
-
-      impl_->context.Reset();
-      impl_->env.reset();
-      impl_->isolate_data.reset();
-    }
-
-    bool platform_finished = false;
-    impl_->platform->AddIsolateFinishedCallback(isolate, [](void* data) {
-      *static_cast<bool*>(data) = true;
-    }, &platform_finished);
-    impl_->platform->UnregisterIsolate(isolate);
-    isolate->Dispose();
-
-    while (!platform_finished)
-      uv_run(&impl_->loop, UV_RUN_ONCE);
-  }
-
-  if (impl_->isolate || impl_->loop.data != nullptr)
-    uv_loop_close(&impl_->loop);
-
-  delete impl_;
-}

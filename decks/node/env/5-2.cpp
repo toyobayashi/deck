@@ -95,28 +95,3 @@ CommonEnvironmentSetup::~CommonEnvironmentSetup() {
 
   delete impl_;
 }
-
-uv_loop_t* CommonEnvironmentSetup::event_loop() const {
-  return &impl_->loop;
-}
-
-std::shared_ptr<node::ArrayBufferAllocator>
-CommonEnvironmentSetup::array_buffer_allocator() const {
-  return impl_->allocator;
-}
-
-v8::Isolate* CommonEnvironmentSetup::isolate() const {
-  return impl_->isolate;
-}
-
-node::IsolateData* CommonEnvironmentSetup::isolate_data() const {
-  return impl_->isolate_data.get();
-}
-
-node::Environment* CommonEnvironmentSetup::env() const {
-  return impl_->env.get();
-}
-
-v8::Local<v8::Context> CommonEnvironmentSetup::context() const {
-  return impl_->context.Get(impl_->isolate);
-}

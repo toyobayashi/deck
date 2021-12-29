@@ -120,20 +120,3 @@ node::Environment* CommonEnvironmentSetup::env() const {
 v8::Local<v8::Context> CommonEnvironmentSetup::context() const {
   return impl_->context.Get(impl_->isolate);
 }
-
-// Write in header file
-template <typename... EnvironmentArgs>
-std::unique_ptr<CommonEnvironmentSetup> CommonEnvironmentSetup::Create(
-    node::MultiIsolatePlatform* platform,
-    std::vector<std::string>* errors,
-    EnvironmentArgs&&... env_args) {
-  auto ret = std::unique_ptr<CommonEnvironmentSetup>(new CommonEnvironmentSetup(
-      platform, errors,
-      [&](const CommonEnvironmentSetup* setup) -> node::Environment* {
-        return node::CreateEnvironment(
-            setup->isolate_data(), setup->context(),
-            std::forward<EnvironmentArgs>(env_args)...);
-      }));
-  if (!errors->empty()) ret.reset();
-  return ret;
-}

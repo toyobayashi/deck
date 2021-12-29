@@ -30,6 +30,7 @@ void NodeJs::Shutdown() {
 
 NodeJs::NodeJs() noexcept:
   exit_(0),
+  priv_(nullptr),
   setup_(nullptr),
   args_({ "node" }),
   exec_args_() {

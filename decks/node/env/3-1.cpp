@@ -5,6 +5,8 @@
 #include "node.h"
 #include "uv.h"
 
+namespace node_embed_helpers {
+
 class CommonEnvironmentSetup final {
  public:
   CommonEnvironmentSetup(const CommonEnvironmentSetup&) = delete;
@@ -20,3 +22,5 @@ class CommonEnvironmentSetup final {
       std::vector<std::string>*,
       const std::function<node::Environment*(const CommonEnvironmentSetup*)>&);
 };
+
+}  // node_embed_helpers
