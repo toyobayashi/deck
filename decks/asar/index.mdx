@@ -1,0 +1,268 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+
+export const theme = customTheme
+
+# Electron JavaScript 代码加密方案
+
+不重新编译 Electron，基于 Node.js C++ addon 的 JavaScript 代码加密方案
+
+---
+
+# ASAR 打包加密后的 JavaScript
+
+---
+
+<CodeSurfer>
+
+```js subtitle="以 AES-CBC-256 为例，生成密钥保存到 src/key.txt，形如 0x8d, 0xf9, 0x66, 0xbd, 0xa4, ..."
+// script/keygen.js
+
+const fs = require('fs')
+const path = require('path')
+const crypto = require('crypto')
+
+fs.writeFileSync(
+  path.join(__dirname, '../src/key.txt'),
+  Array.prototype.map.call(
+    crypto.randomBytes(32),
+    byte => '0x' + ('0' + byte.toString(16)).slice(-2)
+  ).toString()
+)
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```js subtitle="打包时先读取密钥"
+// script/pack.js
+
+const fs = require('fs')
+const path = require('path')
+const crypto = require('crypto')
+
+const key = Buffer.from(
+  fs.readFileSync(path.join(__dirname, '../src/key.txt'), 'utf8')
+    .trim()
+    .split(',')
+    .map(v => Number(v.trim()))
+)
+```
+
+```js subtitle="把 JS 加密后并把 IV 拼在最前面，转 Base64 再打包进 ASAR"
+// script/pack.js
+
+const fs = require('fs')
+const path = require('path')
+const crypto = require('crypto')
+
+const key = Buffer.from(
+  fs.readFileSync(path.join(__dirname, '../src/key.txt'), 'utf8')
+    .trim()
+    .split(',')
+    .map(v => Number(v.trim()))
+)
+
+const asar = require('asar')
+
+asar.createPackageWithOptions(appDir, outputAsarPath, {
+  unpack: '*.node', // 原生模块不打包
+  transform (filename) {
+    // transform 函数返回 Transform 流处理 JS 文件
+    // 返回 undefined 则不处理
+    if (path.extname(filename) === '.js') {
+      // 只加密 JS 文件
+      const iv = crypto.randomBytes(16)
+      var append = false
+      var cipher = crypto.createCipheriv('aes-256-cbc', key, iv)
+      cipher.setAutoPadding(true)
+      cipher.setEncoding('base64')
+
+      // 在最前面拼上 IV
+      const oldPush = cipher.push
+      cipher.push = function (chunk, enc) {
+        if (!append && chunk != null) {
+          append = true
+          return oldPush.call(this, Buffer.concat([iv, chunk]), enc)
+        } else {
+          return oldPush.call(this, chunk, enc)
+        }
+      }
+      return cipher
+    }
+  }
+})
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# Node.js require 过程
+
+运行时做解密，从 require 函数入手，先看 Node.js require 的解析过程
+
+---
+
+<CodeSurfer>
+
+```js file=./require/1.js subtitle="require 函数由 makeRequireFunction 创建"
+```
+
+```js 1[30:32],9:11 file=./require/1.js subtitle="调用 Module.prototype.require"
+```
+
+```js file=./require/2.js subtitle="Module.prototype.require"
+```
+
+```js 51,57:59 file=./require/3.js subtitle="调用 Module._load"
+```
+
+```js file=./require/4.js subtitle="查找同一目录中的快速路径缓存"
+```
+
+```js file=./require/5.js subtitle="Module._resolveFilename 解析完整文件名，如果是 node: 开头就找 builtin 模块"
+```
+
+```js file=./require/6.js subtitle="有缓存就直接返回缓存模块的 exports"
+```
+
+```js file=./require/7.js subtitle="看是不是 builtin 模块"
+```
+
+```js file=./require/8.js subtitle="不是 builtin 模块，就 new 一个 Module 塞入缓存"
+```
+
+```js 119,128:130 file=./require/9.js subtitle="调用 Module.prototype.load"
+```
+
+```js file=./require/10.js subtitle="Module.prototype.load"
+```
+
+```js 137,143:145 file=./require/11.js subtitle="调用 Module._extensions['.js']"
+```
+
+```js file=./require/12.js subtitle="读取 JS 文件的内容，传入 Module.prototype._compile"
+```
+
+```js file=./require/13.js subtitle="Module.prototype._compile"
+```
+
+```js 164,176:177 file=./require/13.js subtitle="Module.prototype._compile 把开发者写的 JS 代码包在一层函数里调用，得到 exports"
+```
+
+</CodeSurfer>
+
+---
+
+# 运行时做解密
+
+把原生模块作为入口，monkey patch 拦截掉 Module.prototype._compile 做解密
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="原生模块实现左侧等价的 JS 逻辑">
+
+```js file=./addon/index.js
+```
+
+```js file=./addon/1.cpp
+```
+
+</Step>
+
+<Step subtitle="确保原生模块是入口">
+
+```js 1:11 file=./addon/index.js
+```
+
+```js file=./addon/2.cpp
+```
+
+</Step>
+
+<Step subtitle="从 mainModule 开始递归寻找当前 module">
+
+```js 1[25:44],2[16:33] file=./addon/index.js
+```
+
+```js file=./addon/3.cpp
+```
+
+</Step>
+
+<Step subtitle="根据当前 module 创建 require 函数">
+
+```js 1[25:44],2[16:33] file=./addon/index.js
+```
+
+```js file=./addon/4.cpp
+```
+
+</Step>
+
+<Step subtitle="模块生命周期自定义数据，存放函数持久引用">
+
+```js 13:31 file=./addon/index.js
+```
+
+```js file=./addon/5.cpp
+```
+
+</Step>
+
+<Step subtitle="拦截 _compile 方法后 require 真正的入口 JS">
+
+```js 13:31 file=./addon/index.js
+```
+
+```js file=./addon/6.cpp
+```
+
+</Step>
+
+<Step subtitle="解密 ASAR 包内的 JS 文件，再传给原来的 _compile">
+
+```js 17:23 file=./addon/index.js
+```
+
+```js file=./addon/7.cpp
+```
+
+</Step>
+
+<Step subtitle="内联第一步生成的 key，用 C 库解密">
+
+```js 20[9:47] file=./addon/index.js
+```
+
+```js file=./addon/8.cpp
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 源码仓库
+
+[https://github.com/toyobayashi/electron-asar-encrypt-demo](https://github.com/toyobayashi/electron-asar-encrypt-demo)
