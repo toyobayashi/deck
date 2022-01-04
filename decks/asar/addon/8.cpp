@@ -63,9 +63,35 @@ struct AddonData {
   std::unordered_map<int, Napi::FunctionReference> functions;
 };
 
+Napi::Value ModulePrototypeCompile(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AddonData* addon_data = static_cast<AddonData*>(info.Data());
+  Napi::String content = info[0].As<Napi::String>();
+  Napi::String filename = info[1].As<Napi::String>();
+  std::string filename_str = filename.Utf8Value();
+  Napi::Function old_compile =
+    addon_data->functions[FN_MODULE_PROTOTYPE__COMPILE].Value();
+
+  if (filename_str.find("app.asar") != std::string::npos) {
+    return old_compile.Call(info.This(),
+      { Napi::String::New(env, Decrypt(content.Utf8Value())), filename });
+  }
+  return old_compile.Call(info.This(), { content, filename });
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  Napi::Object main_module = env.Global().Get("process").As<Napi::Object>()
-    .Get("mainModule").As<Napi::Object>();
+  Napi::Object process = env.Global().Get("process").As<Napi::Object>();
+  Napi::Array argv = process.Get("argv").As<Napi::Array>();
+  for (uint32_t i = 0; i < argv.Length(); ++i) {
+    std::string arg = argv.Get(i).As<Napi::String>().Utf8Value();
+    if (arg.find("--inspect") == 0 ||
+        arg.find("--remote-debugging-port") == 0) {
+      Napi::Error::New(env, "Not allow debugging this program.")
+        .ThrowAsJavaScriptException();
+      return exports;
+    }
+  }
+  Napi::Object main_module = process.Get("mainModule").As<Napi::Object>();
 
   Napi::Object this_module = GetModuleObject(&env, main_module, exports)
     .As<Napi::Object>();
@@ -114,55 +140,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     ShowErrorAndQuit(env, electron, e.Get("stack").As<Napi::String>());
   }
   return exports;
-}
-
-uint8_t* GetKeyVector() {
-  static uint8_t key[32] = {
-#include "key.txt"
-  };
-
-  return key;
-}
-
-Napi::String Decypt(const Napi::Env& env,
-                    const Napi::String& base64) {
-  Napi::Object buffer_constructor = env.Global().Get("Buffer")
-    .As<Napi::Object>();
-  Napi::Buffer<uint8_t> body = buffer_constructor.Get("from")
-    .As<Napi::Function>()
-    .Call(buffer_constructor, { base64, Napi::String::New(env, "base64") })
-    .As<Napi::Buffer<uint8_t>>();
-
-  // 前 16 位是 IV
-  Napi::Buffer<uint8_t> iv = body.Get("slice").As<Napi::Function>()
-    .Call(body, { Napi::Number::New(env, 0), Napi::Number::New(env, 16) })
-    .As<Napi::Buffer<uint8_t>>();
-  Napi::Buffer<uint8_t> data = body.Get("slice").As<Napi::Function>()
-    .Call(body, { Napi::Number::New(env, 16) })
-    .As<Napi::Buffer<uint8_t>>();
-
-  // 内联 JS 脚本生成的 key 文件，tiny-AES-c 解密
-  std::string plain_content = Aesdec(BufferToVector(data),
-    GetKeyVector(), BufferToVector(iv));
-
-  return Napi::String::New(env, plain_content);
-}
-
-Napi::Value ModulePrototypeCompile(const Napi::CallbackInfo& info) {
-  Napi::Env env = info.Env();
-  AddonData* addon_data = static_cast<AddonData*>(info.Data());
-  Napi::Object content = info[0].As<Napi::Object>();
-  Napi::Object filename = info[1].As<Napi::Object>();
-  Napi::Function old_compile =
-    addon_data->functions[FN_MODULE_PROTOTYPE__COMPILE].Value();
-
-  if (-1 != filename.Get("indexOf").As<Napi::Function>()
-              .Call(filename, { Napi::String::New(env, "app.asar") })
-              .As<Napi::Number>().Int32Value()) {
-    return old_compile.Call(info.This(),
-      { Decypt(env, content.As<Napi::String>()), filename });
-  }
-  return old_compile.Call(info.This(), { content, filename });
 }
 
 NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)

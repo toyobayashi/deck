@@ -1,3 +1,11 @@
+// 禁止调试
+for (let i = 0; i < process.argv.length; i++) {
+  if (process.argv[i].startsWith('--inspect') ||
+      process.argv[i].startsWith('--remote-debugging-port')) {
+    throw new Error('Not allow debugging this program.')
+  }
+}
+
 const { app, dialog } = require('electron')
 const Module = require('module')
 

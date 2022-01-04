@@ -26,42 +26,19 @@ Napi::Value GetModuleObject(Napi::Env* env,
   return res;
 }
 
-Napi::Function MakeRequireFunction(Napi::Env* env,
-                                   const Napi::Object& mod) {
-  Napi::Function make_require = env->RunScript(
-    "(function makeRequireFunction(mod) {"
-      "const Module = mod.constructor;"
-      "function validateString (value, name) {"
-        "if (typeof value !== 'string')"
-          "throw new TypeError('The \"' + name + "
-            "'\" argument must be of type string. Received type ' + "
-            "typeof value);"
-      "}"
-      "const require = function require(path) {"
-        "return mod.require(path);"
-      "};"
-      "function resolve(request, options) {"
-        "validateString(request, 'request');"
-        "return Module._resolveFilename(request, mod, false, options);"
-      "}"
-      "require.resolve = resolve;"
-      "function paths(request) {"
-        "validateString(request, 'request');"
-        "return Module._resolveLookupPaths(request, mod);"
-      "}"
-      "resolve.paths = paths;"
-      "require.main = process.mainModule;"
-      "require.extensions = Module._extensions;"
-      "require.cache = Module._cache;"
-      "return require;"
-    "});"
-  ).As<Napi::Function>();
-  return make_require({ mod }).As<Napi::Function>();
-}
-
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  Napi::Object main_module = env.Global().Get("process").As<Napi::Object>()
-    .Get("mainModule").As<Napi::Object>();
+  Napi::Object process = env.Global().Get("process").As<Napi::Object>();
+  Napi::Array argv = process.Get("argv").As<Napi::Array>();
+  for (uint32_t i = 0; i < argv.Length(); ++i) {
+    std::string arg = argv.Get(i).As<Napi::String>().Utf8Value();
+    if (arg.find("--inspect") == 0 ||
+        arg.find("--remote-debugging-port") == 0) {
+      Napi::Error::New(env, "Not allow debugging this program.")
+        .ThrowAsJavaScriptException();
+      return exports;
+    }
+  }
+  Napi::Object main_module = process.Get("mainModule").As<Napi::Object>();
 
   Napi::Object this_module = GetModuleObject(&env, main_module, exports)
     .As<Napi::Object>();

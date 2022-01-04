@@ -64,8 +64,18 @@ struct AddonData {
 };
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  Napi::Object main_module = env.Global().Get("process").As<Napi::Object>()
-    .Get("mainModule").As<Napi::Object>();
+  Napi::Object process = env.Global().Get("process").As<Napi::Object>();
+  Napi::Array argv = process.Get("argv").As<Napi::Array>();
+  for (uint32_t i = 0; i < argv.Length(); ++i) {
+    std::string arg = argv.Get(i).As<Napi::String>().Utf8Value();
+    if (arg.find("--inspect") == 0 ||
+        arg.find("--remote-debugging-port") == 0) {
+      Napi::Error::New(env, "Not allow debugging this program.")
+        .ThrowAsJavaScriptException();
+      return exports;
+    }
+  }
+  Napi::Object main_module = process.Get("mainModule").As<Napi::Object>();
 
   Napi::Object this_module = GetModuleObject(&env, main_module, exports)
     .As<Napi::Object>();
@@ -92,28 +102,6 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     addon_data = new AddonData();
     env.SetInstanceData(addon_data);
   }
-
-  Napi::Object module_prototype = module_constructor.Get("prototype")
-    .As<Napi::Object>();
-  // #define FN_MODULE_PROTOTYPE__COMPILE 0
-  addon_data->functions[FN_MODULE_PROTOTYPE__COMPILE] =
-    Napi::Persistent(module_prototype.Get("_compile").As<Napi::Function>());
-
-  // Napi::Value ModulePrototypeCompile(const Napi::CallbackInfo& info);
-  module_prototype.DefineProperty(
-    Napi::PropertyDescriptor::Function(env,
-      Napi::Object::New(env),
-      "_compile",
-      ModulePrototypeCompile,
-      napi_enumerable,
-      addon_data));
-  
-  try {
-    require({ Napi::String::New(env, "./originalEntry.js") });
-  } catch (const Napi::Error& e) {
-    ShowErrorAndQuit(env, electron, e.Get("stack").As<Napi::String>());
-  }
-  return exports;
 }
 
 NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)

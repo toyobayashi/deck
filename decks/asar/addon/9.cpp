@@ -63,6 +63,47 @@ struct AddonData {
   std::unordered_map<int, Napi::FunctionReference> functions;
 };
 
+const uint8_t* GetKey() {
+  static const uint8_t key[32] = {
+#include "key.txt"
+  };
+
+  return key;
+}
+
+std::string Decrypt(const std::string& base64) {
+  size_t buflen = base64_decode(base64.c_str(), base64.length(), nullptr);
+  if (buflen == 0) return "";
+  std::vector<uint8_t> buf(buflen);
+  base64_decode(base64.c_str(), base64.length(), &buf[0]);
+
+  // 前 16 字节是 IV
+  std::vector<uint8_t> iv(buf.begin(), buf.begin() + 16);
+  std::vector<uint8_t> data(buf.begin() + 16, buf.end());
+
+  // 内联 JS 脚本生成的 key 文件，tiny-AES-c 解密
+  // std::string Aesdec(const std::vector<uint8_t>& data,
+  //                    const uint8_t* key,
+  //                    const uint8_t* iv);
+  return Aesdec(data, GetKey(), iv.data());
+}
+
+Napi::Value ModulePrototypeCompile(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  AddonData* addon_data = static_cast<AddonData*>(info.Data());
+  Napi::String content = info[0].As<Napi::String>();
+  Napi::String filename = info[1].As<Napi::String>();
+  std::string filename_str = filename.Utf8Value();
+  Napi::Function old_compile =
+    addon_data->functions[FN_MODULE_PROTOTYPE__COMPILE].Value();
+
+  if (filename_str.find("app.asar") != std::string::npos) {
+    return old_compile.Call(info.This(),
+      { Napi::String::New(env, Decrypt(content.Utf8Value())), filename });
+  }
+  return old_compile.Call(info.This(), { content, filename });
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   Napi::Object process = env.Global().Get("process").As<Napi::Object>();
   Napi::Array argv = process.Get("argv").As<Napi::Array>();

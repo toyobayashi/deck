@@ -179,9 +179,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="确保原生模块是入口">
+<Step subtitle="禁止调试">
 
-```js 1:11 file=./addon/index.js
+```js 1:7 file=./addon/index.js
 ```
 
 ```js file=./addon/2.cpp
@@ -189,9 +189,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="从 mainModule 开始递归寻找当前 module">
+<Step subtitle="确保原生模块是入口">
 
-```js 1[25:44],2[16:33] file=./addon/index.js
+```js 9:19 file=./addon/index.js
 ```
 
 ```js file=./addon/3.cpp
@@ -199,9 +199,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="根据当前 module 创建 require 函数">
+<Step subtitle="从 mainModule 开始递归寻找当前 module">
 
-```js 1[25:44],2[16:33] file=./addon/index.js
+```js 9[25:44],10[16:33] file=./addon/index.js
 ```
 
 ```js file=./addon/4.cpp
@@ -209,9 +209,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="模块生命周期自定义数据，存放函数持久引用">
+<Step subtitle="根据当前 module 创建 require 函数">
 
-```js 13:31 file=./addon/index.js
+```js 9[25:44],10[16:33] file=./addon/index.js
 ```
 
 ```js file=./addon/5.cpp
@@ -219,9 +219,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="拦截 _compile 方法后 require 真正的入口 JS">
+<Step subtitle="模块生命周期自定义数据，存放函数持久引用">
 
-```js 13:31 file=./addon/index.js
+```js 21:39 file=./addon/index.js
 ```
 
 ```js file=./addon/6.cpp
@@ -229,9 +229,9 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="解密 ASAR 包内的 JS 文件，再传给原来的 _compile">
+<Step subtitle="拦截 _compile 方法后 require 真正的入口 JS">
 
-```js 17:23 file=./addon/index.js
+```js 21:39 file=./addon/index.js
 ```
 
 ```js file=./addon/7.cpp
@@ -239,12 +239,22 @@ asar.createPackageWithOptions(appDir, outputAsarPath, {
 
 </Step>
 
-<Step subtitle="内联第一步生成的 key，用 C 库解密">
+<Step subtitle="解密 ASAR 包内的 JS 文件，再传给原来的 _compile">
 
-```js 20[9:47] file=./addon/index.js
+```js 25:31 file=./addon/index.js
 ```
 
 ```js file=./addon/8.cpp
+```
+
+</Step>
+
+<Step subtitle="内联第一步生成的 key，用 C 库解密">
+
+```js 28[9:47] file=./addon/index.js
+```
+
+```js 66:89,94,102[32:59] file=./addon/9.cpp
 ```
 
 </Step>
