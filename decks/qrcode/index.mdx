@@ -1,0 +1,1275 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-cmake"
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# WebAssembly 实现二维码识别与生成
+
+<Logo />
+
+Node-API for Emscripten，在浏览器和 Node.js 跑同一套 C++ 代码
+
+---
+
+在线演示：[https://zxing-demo.vercel.app/](https://zxing-demo.vercel.app/)
+
+演示源码：[https://github.com/toyobayashi/zxing-demo](https://github.com/toyobayashi/zxing-demo)
+
+关联项目
+
+- [https://github.com/toyobayashi/emnapi](https://github.com/toyobayashi/emnapi)
+- [https://github.com/toyobayashi/emwrap](https://github.com/toyobayashi/emwrap)
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step subtitle="package.json 与 CMakeLists.txt">
+
+```txt
+{
+  "scripts": {
+
+  },
+  "devDependencies": {
+
+  }
+}
+```
+
+```cmake
+cmake_minimum_required(VERSION 3.17.0)
+
+project(zxingdemo)
+```
+
+</Step>
+
+<Step subtitle="package.json 与 CMakeLists.txt">
+
+```txt
+{
+  "scripts": {
+    "clean": "node ./script/clean.js",
+    "cmake:win": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"MinGW Makefiles\" \
+      -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
+    "cmake:unix": "emcmake cmake -DCMAKE_BUILD_TYPE=Release -G \"Unix Makefiles\" \
+      -DCMAKE_MAKE_PROGRAM=make -DBUILD_SHARED_LIBS=OFF -H. -Bbuild",
+    "cmake:build": "cmake --build build",
+    "gyp:rebuild": "node-gyp rebuild",
+    "gyp:build": "node-gyp build",
+  },
+  "devDependencies": {
+    "@tybys/emnapi": "0.10.2",
+    "@tybys/emwrap": "^2.1.1",
+    "node-addon-api": "4.3.0"
+  }
+}
+```
+
+```cmake
+cmake_minimum_required(VERSION 3.17.0)
+
+project(zxingdemo)
+
+set(BUILD_WRITERS ON)
+
+add_compile_options(
+  "-sDISABLE_EXCEPTION_CATCHING=0"
+)
+
+add_subdirectory("deps/zxing-cpp/core")
+add_subdirectory("node_modules/@tybys/emnapi")
+
+add_executable(zxingwasm
+  "src/binding.cpp"
+  "src/Matrix.cpp"
+)
+
+set_target_properties(zxingwasm
+  PROPERTIES CXX_STANDARD 17
+)
+
+target_link_options(zxingwasm PRIVATE
+  "-sDISABLE_EXCEPTION_CATCHING=0"
+  "-sALLOW_MEMORY_GROWTH=1"
+  "-sEXPORTED_FUNCTIONS=['_malloc','_free']"
+  "-sMIN_CHROME_VERSION=48"
+)
+
+add_custom_command(TARGET zxingwasm POST_BUILD
+  COMMAND npx emwrap "--name=zxingwasm" "$<TARGET_FILE:zxingwasm>"
+)
+
+target_link_libraries(zxingwasm ZXing emnapi)
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+## 编写 Binding 代码，调用 zxing-cpp 库
+
+---
+
+<CodeSurfer>
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+
+  try {
+    ZXing::DecodeHints hints;
+    hints.setTryHarder(tryHarder);
+    hints.setTryRotate(tryHarder);
+    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+
+    ZXing::ImageView view(u8arr.Data(),
+      width, height, ZXing::ImageFormat::RGBX);
+    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    return ConvertResultToObject(env,
+      ZXing::ToString(result.format()),
+      result.text(),
+      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp 11:17,36:40
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+inline Napi::Value ConvertResultToObject(Napi::Env env,
+                                         const std::string& format,
+                                         const std::wstring& text,
+                                         const std::string& error,
+                                         const ZXing::Position& position) {
+
+}
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+
+  try {
+    ZXing::DecodeHints hints;
+    hints.setTryHarder(tryHarder);
+    hints.setTryRotate(tryHarder);
+    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+
+    ZXing::ImageView view(u8arr.Data(),
+      width, height, ZXing::ImageFormat::RGBX);
+    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    return ConvertResultToObject(env,
+      ZXing::ToString(result.format()),
+      result.text(),
+      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+inline Napi::Value ConvertResultToObject(Napi::Env env,
+                                         const std::string& format,
+                                         const std::wstring& text,
+                                         const std::string& error,
+                                         const ZXing::Position& position) {
+  Napi::Object js_result = Napi::Object::New(env);
+  js_result["format"] = Napi::String::New(env, format);
+  js_result["text"] = Napi::String::New(env,
+    ZXing::TextUtfEncoding::ToUtf8(text));
+  js_result["error"] = Napi::String::New(env, error);
+
+  if (error.empty() && !format.empty()) {
+    Napi::Array js_position = Napi::Array::New(env, 4);
+    Napi::Object js_top_left = Napi::Object::New(env);
+    js_top_left["x"] = position[0].x;
+    js_top_left["y"] = position[0].y;
+    js_position[0U] = js_top_left;
+
+    Napi::Object js_top_right = Napi::Object::New(env);
+    js_top_right["x"] = position[1].x;
+    js_top_right["y"] = position[1].y;
+    js_position[1U] = js_top_right;
+
+    Napi::Object js_bottom_right = Napi::Object::New(env);
+    js_bottom_right["x"] = position[2].x;
+    js_bottom_right["y"] = position[2].y;
+    js_position[2U] = js_bottom_right;
+
+    Napi::Object js_bottom_left = Napi::Object::New(env);
+    js_bottom_left["x"] = position[3].x;
+    js_bottom_left["y"] = position[3].y;
+    js_position[3U] = js_bottom_left;
+
+    js_result["position"] = js_position;
+  } else {
+    js_result["position"] = env.Null();
+  }
+
+  return js_result;
+}
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+
+  try {
+    ZXing::DecodeHints hints;
+    hints.setTryHarder(tryHarder);
+    hints.setTryRotate(tryHarder);
+    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+
+    ZXing::ImageView view(u8arr.Data(),
+      width, height, ZXing::ImageFormat::RGBX);
+    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    return ConvertResultToObject(env,
+      ZXing::ToString(result.format()),
+      result.text(),
+      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+inline Napi::Value ConvertResultToObject(Napi::Env env,
+                                         const std::string& format,
+                                         const std::wstring& text,
+                                         const std::string& error,
+                                         const ZXing::Position& position) {
+  Napi::Object js_result = Napi::Object::New(env);
+  js_result["format"] = Napi::String::New(env, format);
+  js_result["text"] = Napi::String::New(env,
+    ZXing::TextUtfEncoding::ToUtf8(text));
+  js_result["error"] = Napi::String::New(env, error);
+
+  if (error.empty() && !format.empty()) {
+    Napi::Array js_position = Napi::Array::New(env, 4);
+    Napi::Object js_top_left = Napi::Object::New(env);
+    js_top_left["x"] = position[0].x;
+    js_top_left["y"] = position[0].y;
+    js_position[0U] = js_top_left;
+
+    Napi::Object js_top_right = Napi::Object::New(env);
+    js_top_right["x"] = position[1].x;
+    js_top_right["y"] = position[1].y;
+    js_position[1U] = js_top_right;
+
+    Napi::Object js_bottom_right = Napi::Object::New(env);
+    js_bottom_right["x"] = position[2].x;
+    js_bottom_right["y"] = position[2].y;
+    js_position[2U] = js_bottom_right;
+
+    Napi::Object js_bottom_left = Napi::Object::New(env);
+    js_bottom_left["x"] = position[3].x;
+    js_bottom_left["y"] = position[3].y;
+    js_position[3U] = js_bottom_left;
+
+    js_result["position"] = js_position;
+  } else {
+    js_result["position"] = env.Null();
+  }
+
+  return js_result;
+}
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+
+  try {
+    ZXing::DecodeHints hints;
+    hints.setTryHarder(tryHarder);
+    hints.setTryRotate(tryHarder);
+    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+
+    ZXing::ImageView view(u8arr.Data(),
+      width, height, ZXing::ImageFormat::RGBX);
+    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    return ConvertResultToObject(env,
+      ZXing::ToString(result.format()),
+      result.text(),
+      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  std::string text = info[0].As<Napi::String>().Utf8Value();
+  std::string format = info[1].As<Napi::String>().Utf8Value();
+  std::string encoding = info[2].As<Napi::String>().Utf8Value();
+  int margin = info[3].As<Napi::Number>().Uint32Value();
+  int width = info[4].As<Napi::Number>().Uint32Value();
+  int height = info[5].As<Napi::Number>().Uint32Value();
+  int eccLevel = info[6].As<Napi::Number>().Uint32Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  exports["generateMatrix"] = Napi::Function::New(env,
+    zxingwasm::JsGenerateMatrix, "generateMatrix");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+```cpp
+#include "napi.h"
+#include "BitMatrix.h"
+#include "ReadBarcode.h"
+#include "TextUtfEncoding.h"
+#include "BarcodeFormat.h"
+#include "MultiFormatWriter.h"
+#include "CharacterSetECI.h"
+
+namespace zxingwasm {
+
+inline Napi::Value ConvertResultToObject(Napi::Env env,
+                                         const std::string& format,
+                                         const std::wstring& text,
+                                         const std::string& error,
+                                         const ZXing::Position& position) {
+  Napi::Object js_result = Napi::Object::New(env);
+  js_result["format"] = Napi::String::New(env, format);
+  js_result["text"] = Napi::String::New(env,
+    ZXing::TextUtfEncoding::ToUtf8(text));
+  js_result["error"] = Napi::String::New(env, error);
+
+  if (error.empty() && !format.empty()) {
+    Napi::Array js_position = Napi::Array::New(env, 4);
+    Napi::Object js_top_left = Napi::Object::New(env);
+    js_top_left["x"] = position[0].x;
+    js_top_left["y"] = position[0].y;
+    js_position[0U] = js_top_left;
+
+    Napi::Object js_top_right = Napi::Object::New(env);
+    js_top_right["x"] = position[1].x;
+    js_top_right["y"] = position[1].y;
+    js_position[1U] = js_top_right;
+
+    Napi::Object js_bottom_right = Napi::Object::New(env);
+    js_bottom_right["x"] = position[2].x;
+    js_bottom_right["y"] = position[2].y;
+    js_position[2U] = js_bottom_right;
+
+    Napi::Object js_bottom_left = Napi::Object::New(env);
+    js_bottom_left["x"] = position[3].x;
+    js_bottom_left["y"] = position[3].y;
+    js_position[3U] = js_bottom_left;
+
+    js_result["position"] = js_position;
+  } else {
+    js_result["position"] = env.Null();
+  }
+
+  return js_result;
+}
+
+Napi::Value JsReadFromRawImage(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Uint8Array u8arr = info[0].As<Napi::Uint8Array>();
+  int width = info[1].As<Napi::Number>().Uint32Value();
+  int height = info[2].As<Napi::Number>().Uint32Value();
+  bool tryHarder = info[3].As<Napi::Boolean>().Value();
+  std::string format = info[4].As<Napi::String>().Utf8Value();
+
+  try {
+    ZXing::DecodeHints hints;
+    hints.setTryHarder(tryHarder);
+    hints.setTryRotate(tryHarder);
+    hints.setFormats(ZXing::BarcodeFormatsFromString(format));
+
+    ZXing::ImageView view(u8arr.Data(),
+      width, height, ZXing::ImageFormat::RGBX);
+    ZXing::Result result = ZXing::ReadBarcode(view, hints);
+    return ConvertResultToObject(env,
+      ZXing::ToString(result.format()),
+      result.text(),
+      result.isValid() ? "" : ZXing::ToString(result.status()),
+      result.position());
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+Napi::Value JsGenerateMatrix(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  std::string text = info[0].As<Napi::String>().Utf8Value();
+  std::string format = info[1].As<Napi::String>().Utf8Value();
+  std::string encoding = info[2].As<Napi::String>().Utf8Value();
+  int margin = info[3].As<Napi::Number>().Uint32Value();
+  int width = info[4].As<Napi::Number>().Uint32Value();
+  int height = info[5].As<Napi::Number>().Uint32Value();
+  int eccLevel = info[6].As<Napi::Number>().Uint32Value();
+
+  try {
+    ZXing::BarcodeFormat barcodeFormat = ZXing::BarcodeFormatFromString(format);
+    if (barcodeFormat == ZXing::BarcodeFormat::None) {
+      Napi::TypeError::New(env, "Unsupported format: " + format)
+        .ThrowAsJavaScriptException();
+      return Napi::Value();
+    }
+
+    ZXing::MultiFormatWriter writer(barcodeFormat);
+    if (margin >= 0)
+      writer.setMargin(margin);
+
+    ZXing::CharacterSet charset =
+      ZXing::CharacterSetECI::CharsetFromName(encoding.c_str());
+    if (charset != ZXing::CharacterSet::Unknown)
+      writer.setEncoding(charset);
+
+    if (eccLevel >= 0 && eccLevel <= 8)
+      writer.setEccLevel(eccLevel);
+
+    Napi::FunctionReference* constructor =
+      env.GetInstanceData<Napi::FunctionReference>();
+
+    return constructor->New({
+      Napi::External<ZXing::Matrix<uint8_t>>::New(env,
+        new ZXing::Matrix<uint8_t>(ZXing::ToMatrix<uint8_t>(
+          writer.encode(ZXing::TextUtfEncoding::FromUtf8(text),
+            width, height))))
+    });
+  } catch (const Napi::Error& e) {
+    e.ThrowAsJavaScriptException();
+  } catch (const std::exception& e) {
+    Napi::Error::New(env, e.what())
+      .ThrowAsJavaScriptException();
+  } catch (...) {
+    Napi::Error::New(env, "Unknown error")
+      .ThrowAsJavaScriptException();
+  }
+  return Napi::Value();
+}
+
+}  // namespace zxingwasm
+
+namespace {
+
+Napi::Object Init(Napi::Env env, Napi::Object exports) {
+  zxingwasm::Matrix::Init(env);
+  exports["readFromRawImage"] = Napi::Function::New(env,
+    zxingwasm::JsReadFromRawImage, "readFromRawImage");
+  exports["generateMatrix"] = Napi::Function::New(env,
+    zxingwasm::JsGenerateMatrix, "generateMatrix");
+  return exports;
+}
+
+}  // namespace
+
+NODE_API_MODULE(NODE_GYP_MODULE_NAME, Init)
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step>
+
+```cpp file=./matrix.hpp
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./matrix.hpp 17
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+void Matrix::Init(Napi::Env env) {
+  Napi::Function func = DefineClass(env, "ZXingMatrix", {
+    InstanceMethod<&Matrix::GetDataAddress>("getDataAddress",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetDataSize>("getDataSize",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#ifndef __EMSCRIPTEN__
+    InstanceMethod<&Matrix::GetBuffer>("getBuffer",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#endif
+    InstanceMethod<&Matrix::Destroy>("destroy",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+  });
+
+  Napi::FunctionReference* constructor = new Napi::FunctionReference();
+  *constructor = Napi::Persistent(func);
+  env.SetInstanceData<Napi::FunctionReference>(constructor);
+}
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./matrix.hpp 18
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+void Matrix::Init(Napi::Env env) {
+  Napi::Function func = DefineClass(env, "ZXingMatrix", {
+    InstanceMethod<&Matrix::GetDataAddress>("getDataAddress",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetDataSize>("getDataSize",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#ifndef __EMSCRIPTEN__
+    InstanceMethod<&Matrix::GetBuffer>("getBuffer",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#endif
+    InstanceMethod<&Matrix::Destroy>("destroy",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+  });
+
+  Napi::FunctionReference* constructor = new Napi::FunctionReference();
+  *constructor = Napi::Persistent(func);
+  env.SetInstanceData<Napi::FunctionReference>(constructor);
+}
+
+Matrix::Matrix(const Napi::CallbackInfo& info):
+  Napi::ObjectWrap<Matrix>(info),
+  value_(info[0].As<Napi::External<ZXing::Matrix<uint8_t>>>().Data()) {}
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./matrix.hpp 19,30
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+void Matrix::Init(Napi::Env env) {
+  Napi::Function func = DefineClass(env, "ZXingMatrix", {
+    InstanceMethod<&Matrix::GetDataAddress>("getDataAddress",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetDataSize>("getDataSize",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#ifndef __EMSCRIPTEN__
+    InstanceMethod<&Matrix::GetBuffer>("getBuffer",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#endif
+    InstanceMethod<&Matrix::Destroy>("destroy",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+  });
+
+  Napi::FunctionReference* constructor = new Napi::FunctionReference();
+  *constructor = Napi::Persistent(func);
+  env.SetInstanceData<Napi::FunctionReference>(constructor);
+}
+
+Matrix::Matrix(const Napi::CallbackInfo& info):
+  Napi::ObjectWrap<Matrix>(info),
+  value_(info[0].As<Napi::External<ZXing::Matrix<uint8_t>>>().Data()) {}
+
+void Matrix::Finalize(Napi::Env env) {
+  if (value_ != nullptr) {
+    delete value_;
+    value_ = nullptr;
+  }
+}
+
+Napi::Value Matrix::Destroy(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Finalize(env);
+  return env.Undefined();
+}
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./matrix.hpp 23:26
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+void Matrix::Init(Napi::Env env) {
+  Napi::Function func = DefineClass(env, "ZXingMatrix", {
+    InstanceMethod<&Matrix::GetDataAddress>("getDataAddress",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetDataSize>("getDataSize",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#ifndef __EMSCRIPTEN__
+    InstanceMethod<&Matrix::GetBuffer>("getBuffer",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#endif
+    InstanceMethod<&Matrix::Destroy>("destroy",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+  });
+
+  Napi::FunctionReference* constructor = new Napi::FunctionReference();
+  *constructor = Napi::Persistent(func);
+  env.SetInstanceData<Napi::FunctionReference>(constructor);
+}
+
+Matrix::Matrix(const Napi::CallbackInfo& info):
+  Napi::ObjectWrap<Matrix>(info),
+  value_(info[0].As<Napi::External<ZXing::Matrix<uint8_t>>>().Data()) {}
+
+void Matrix::Finalize(Napi::Env env) {
+  if (value_ != nullptr) {
+    delete value_;
+    value_ = nullptr;
+  }
+}
+
+#define MATRIX_CHECK(env) \
+  do { \
+    if (value_ == nullptr) { \
+      Napi::Error::New((env), "Accessing destroyed Matrix object") \
+        .ThrowAsJavaScriptException(); \
+      return Napi::Value(); \
+    } \
+  } while (0)
+
+Napi::Value Matrix::GetDataAddress(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env,
+    reinterpret_cast<size_t>(value_->data()));
+}
+
+Napi::Value Matrix::GetDataSize(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->size());
+}
+
+Napi::Value Matrix::GetWidth(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->width());
+}
+
+Napi::Value Matrix::GetHeight(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->height());
+}
+
+Napi::Value Matrix::Destroy(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Finalize(env);
+  return env.Undefined();
+}
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+<Step>
+
+```cpp file=./matrix.hpp 27:29
+```
+
+```cpp
+#include "Matrix.hpp"
+#include "BitMatrix.h"
+
+namespace zxingwasm {
+
+void Matrix::Init(Napi::Env env) {
+  Napi::Function func = DefineClass(env, "ZXingMatrix", {
+    InstanceMethod<&Matrix::GetDataAddress>("getDataAddress",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetDataSize>("getDataSize",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetWidth>("getWidth",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+    InstanceMethod<&Matrix::GetHeight>("getHeight",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#ifndef __EMSCRIPTEN__
+    InstanceMethod<&Matrix::GetBuffer>("getBuffer",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+#endif
+    InstanceMethod<&Matrix::Destroy>("destroy",
+      static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+  });
+
+  Napi::FunctionReference* constructor = new Napi::FunctionReference();
+  *constructor = Napi::Persistent(func);
+  env.SetInstanceData<Napi::FunctionReference>(constructor);
+}
+
+Matrix::Matrix(const Napi::CallbackInfo& info):
+  Napi::ObjectWrap<Matrix>(info),
+  value_(info[0].As<Napi::External<ZXing::Matrix<uint8_t>>>().Data()) {}
+
+void Matrix::Finalize(Napi::Env env) {
+  if (value_ != nullptr) {
+    delete value_;
+    value_ = nullptr;
+  }
+}
+
+#define MATRIX_CHECK(env) \
+  do { \
+    if (value_ == nullptr) { \
+      Napi::Error::New((env), "Accessing destroyed Matrix object") \
+        .ThrowAsJavaScriptException(); \
+      return Napi::Value(); \
+    } \
+  } while (0)
+
+Napi::Value Matrix::GetDataAddress(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env,
+    reinterpret_cast<size_t>(value_->data()));
+}
+
+Napi::Value Matrix::GetDataSize(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->size());
+}
+
+Napi::Value Matrix::GetWidth(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->width());
+}
+
+Napi::Value Matrix::GetHeight(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  return Napi::Number::New(env, value_->height());
+}
+
+#ifndef __EMSCRIPTEN__
+Napi::Value Matrix::GetBuffer(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  MATRIX_CHECK(env);
+  size_t len = value_->size();
+  Napi::ArrayBuffer ab = Napi::ArrayBuffer::New(env,
+    const_cast<uint8_t*>(value_->data()),
+    len);
+  return Napi::Uint8Array::New(env, len, ab, 0, napi_uint8_array);
+}
+#endif
+
+Napi::Value Matrix::Destroy(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Finalize(env);
+  return env.Undefined();
+}
+
+}  // namespace zxingwasm
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+## 浏览器
+
+npm run cmake:win && npm run cmake:build
+
+---
+
+<CodeSurfer>
+
+```html
+<script src="zxingwasm.js"></script>
+<script>
+
+</script>
+```
+
+```html
+<script src="zxingwasm.js"></script>
+<script>
+  const modulePromise = zxingwasm.default()
+
+  async function scanImage () {
+    // ...
+    const { Module } = await modulePromise
+    const ctx = canvas.getContext("2d")
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+
+    const buffer = Module._malloc(data.length)
+    Module.HEAPU8.set(data, buffer)
+    const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
+    let result
+    try {
+      result = Module.emnapiExports.readFromRawImage(u8arr, img.width, img.height, true, 'QRCode')
+    } catch (err) {
+      console.error(err)
+      window.alert(err.message)
+      Module._free(buffer)
+      return
+    }
+    Module._free(buffer)
+
+    // ...
+  }
+</script>
+```
+
+```html
+<script src="zxingwasm.js"></script>
+<script>
+  const modulePromise = zxingwasm.default()
+
+  async function scanImage () {
+    // ...
+    const { Module } = await modulePromise
+    const ctx = canvas.getContext("2d")
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+
+    const buffer = Module._malloc(data.length)
+    Module.HEAPU8.set(data, buffer)
+    const u8arr = new Uint8Array(Module.HEAPU8.buffer, buffer, data.length)
+    let result
+    try {
+      result = Module.emnapiExports.readFromRawImage(u8arr, img.width, img.height, true, 'QRCode')
+    } catch (err) {
+      console.error(err)
+      window.alert(err.message)
+      Module._free(buffer)
+      return
+    }
+    Module._free(buffer)
+
+    // ...
+  }
+
+  async function generate (text) {
+    // ...
+    const { Module } = await modulePromise
+    let matrix
+    try {
+      matrix = Module.emnapiExports.generateMatrix(text, 'QRCode', 'UTF-8', 10, canvas.width, canvas.height, -1)
+    } catch (err) {
+      console.error(err)
+      window.alert(err.message)
+      return
+    }
+    const dataPtr = matrix.getDataAddress()
+    const dataSize = matrix.getDataSize()
+    const buffer = new Uint8Array(Module.HEAPU8.buffer, dataPtr, dataSize)
+    const ctx = canvas.getContext('2d')
+    const imageData = ctx.createImageData(canvas.width, canvas.height)
+    const pixelSize = canvas.width * canvas.height
+    for (let i = 0; i < pixelSize; i++) {
+      imageData.data.set([buffer[i], buffer[i], buffer[i], 255], i * 4)
+    }
+    ctx.putImageData(imageData, 0, 0)
+    matrix.destroy()
+  }
+</script>
+```
+
+</CodeSurfer>
+
+---
+
+## Node.js
+
+npm run gyp:rebuild
+
+---
+
+<CodeSurfer>
+
+```js
+const path = require('path')
+const Jimp = require('jimp')
+const assert = require('assert')
+
+const {
+  readFromRawImage,
+  generateMatrix
+} = require('./zxing.node')
+
+async function main () {
+  
+}
+
+main().catch(err => {
+  console.error(err)
+  process.exit(1)
+})
+```
+
+```js
+const path = require('path')
+const Jimp = require('jimp')
+const assert = require('assert')
+
+const {
+  readFromRawImage,
+  generateMatrix
+} = require('./zxing.node')
+
+async function main () {
+  const format = 'QRCode'
+  const encoding = 'UTF-8'
+  const width = 300
+  const height = 300
+  const margin = 10
+  const eccLevel = -1
+
+  const input = '扫码发大财'
+
+  const matrix = generateMatrix(input, format, encoding, margin, width, height, eccLevel)
+  const image = await createImage(matrix.getBuffer(), matrix.getWidth(), matrix.getHeight())
+  matrix.destroy()
+  const pngFile = path.join(__dirname, 'qrcode.png')
+  await image.writeAsync(pngFile)
+
+  const readImage = await Jimp.read(pngFile)
+  const imageData = new Uint8Array(readImage.bitmap.data.buffer)
+  const result = readFromRawImage(imageData, readImage.bitmap.width, readImage.bitmap.height, true, 'QRCode')
+  if (result.error) {
+    throw new Error(result.error)
+  }
+  console.log(result)
+  assert.strictEqual(result.text, input)
+}
+
+main().catch(err => {
+  console.error(err)
+  process.exit(1)
+})
+```
+
+```js 10:23,36
+const path = require('path')
+const Jimp = require('jimp')
+const assert = require('assert')
+
+const {
+  readFromRawImage,
+  generateMatrix
+} = require('./zxing.node')
+
+function createImage (data, width, height) {
+  return new Promise((resolve, reject) => {
+    new Jimp(width, height, (err, image) => {
+      if (err) {
+        return reject(err)
+      }
+      const size = width * height
+      for (let i = 0; i < size; ++i) {
+        image.bitmap.data.set([data[i], data[i], data[i], 255], i * 4)
+      }
+      resolve(image)
+    })
+  })
+}
+
+async function main () {
+  const format = 'QRCode'
+  const encoding = 'UTF-8'
+  const width = 300
+  const height = 300
+  const margin = 10
+  const eccLevel = -1
+
+  const input = '扫码发大财'
+
+  const matrix = generateMatrix(input, format, encoding, margin, width, height, eccLevel)
+  const image = await createImage(matrix.getBuffer(), matrix.getWidth(), matrix.getHeight())
+  matrix.destroy()
+  const pngFile = path.join(__dirname, 'qrcode.png')
+  await image.writeAsync(pngFile)
+
+  const readImage = await Jimp.read(pngFile)
+  const imageData = new Uint8Array(readImage.bitmap.data.buffer)
+  const result = readFromRawImage(imageData, readImage.bitmap.width, readImage.bitmap.height, true, 'QRCode')
+  if (result.error) {
+    throw new Error(result.error)
+  }
+  console.log(result)
+  assert.strictEqual(result.text, input)
+}
+
+main().catch(err => {
+  console.error(err)
+  process.exit(1)
+})
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看，一键三连
+
+在线演示：[https://zxing-demo.vercel.app/](https://zxing-demo.vercel.app/)
+
+演示源码：[https://github.com/toyobayashi/zxing-demo](https://github.com/toyobayashi/zxing-demo)
+
+关联项目
+
+- [https://github.com/toyobayashi/emnapi](https://github.com/toyobayashi/emnapi)
+- [https://github.com/toyobayashi/emwrap](https://github.com/toyobayashi/emwrap)
