@@ -1,0 +1,1202 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# Vue 3 主要的破坏性变更
+
+<Logo />
+
+Vue 3 都改了些啥？如何从 Vue 2 迁移？写法上有什么不同？
+
+[https://v3-migration.vuejs.org/breaking-changes/](https://v3-migration.vuejs.org/breaking-changes/)
+
+---
+
+# 全局 API 变更
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step>
+
+```jsx
+// 左边是 Vue 2
+```
+
+```jsx
+// 右边是 Vue 3
+```
+
+</Step>
+
+<Step subtitle="创建实例">
+
+```jsx 1,4:8
+import Vue from 'vue'
+import App from './App.vue'
+
+const vm = new Vue({
+  render: h => h(App)
+})
+
+vm.$mount('#app')
+```
+
+```jsx 1,4:6
+import { createApp } from 'vue'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.mount('#app')
+```
+
+</Step>
+
+<Step subtitle="全局 API 变为 实例 API">
+
+```jsx 3:5,7:12
+import Vue from 'vue'
+
+Vue.config
+Vue.config.productionTip
+Vue.config.ignoredElements = ['my-el', /^ion-/]
+
+Vue.component('MyComponent', { /* ... */ })
+Vue.directive('focus', { /* ... */ })
+Vue.mixin({ /* ... */ })
+Vue.use(VueRouter)
+Vue.prototype.$http = () => {}
+Vue.extend({ /* ... */ })
+```
+
+```jsx 6:9,11:16
+import { createApp } from 'vue'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.config
+// Vue.config.productionTip 被删除
+app.config.compilerOptions.isCustomElement =
+  (tag) => tag.startsWith('ion-')
+
+app.component('MyComponent', { /* ... */ })
+app.directive('focus', { /* ... */ })
+app.mixin({ /* ... */ })
+app.use(VueRouter)
+app.config.globalProperties.$http = () => {}
+// Vue.extend({ /* ... */ }) 被删除
+```
+
+</Step>
+
+<Step subtitle="默认导出 变为 命名导出，更友好的摇树支持">
+
+```jsx 1:4
+import Vue from 'vue'
+// Vue 是构造函数
+
+const { nextTick, observable } = Vue
+
+nextTick(() => {
+  /* ... */
+})
+
+const state = observable({ /* ... */ })
+```
+
+```jsx 1:5
+import { nextTick, reactive } from 'vue'
+
+// 或者
+// import * as Vue from 'vue'
+// Vue 是命名空间
+
+nextTick(() => {
+  /* ... */
+})
+
+const state = reactive({ /* ... */ })
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 模板指令变更
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```markup
+<!-- 左边是 Vue 2 -->
+```
+
+```markup
+<!-- 右边是 Vue 3 -->
+```
+
+</Step>
+
+<Step subtitle="组件 v-model">
+
+```markup 1,5:7
+<ChildComponent v-model="pageTitle" />
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :value="pageTitle"
+  @input="pageTitle = $event" />
+```
+
+```markup 1,5:7
+<ChildComponent v-model="pageTitle" />
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :modelValue="pageTitle"
+  @update:modelValue="pageTitle = $event" />
+```
+
+</Step>
+
+<Step subtitle="组件 v-model 自定义属性">
+
+```markup 1,7:13,19:21
+<ChildComponent v-model="pageTitle" />
+
+<script>
+// ChildComponent
+
+export default {
+  model: {
+    prop: 'title',
+    event: 'change'
+  },
+  props: {
+    title: String
+  }
+}
+</script>
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :title="pageTitle"
+  @change="pageTitle = $event" />
+```
+
+```markup 1,6:10,15:17
+<ChildComponent v-model:title="pageTitle" />
+
+<script setup>
+// ChildComponent
+
+defineProps({
+  title: String
+})
+
+defineEmits(['update:title'])
+</script>
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :title="pageTitle"
+  @update:title="pageTitle = $event" />
+```
+
+</Step>
+
+<Step subtitle=".sync 修饰符 变为 多个 v-model">
+
+```markup 1:3,7:11
+<ChildComponent
+  :title.sync="pageTitle"
+  :content.sync="pageContent" />
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :title="pageTitle"
+  @update:title="pageTitle = $event"
+  :content="pageContent"
+  @update:content="pageContent = $event" />
+```
+
+```markup 1:3,7:11
+<ChildComponent
+  v-model:title="pageTitle"
+  v-model:content="pageContent" />
+
+<!-- 等价于 -->
+
+<ChildComponent
+  :title="pageTitle"
+  @update:title="pageTitle = $event"
+  :content="pageContent"
+  @update:content="pageContent = $event" />
+```
+
+</Step>
+
+<Step subtitle="组件 v-model 自定义修饰符">
+
+```markup
+<!-- Vue 2 不支持 -->
+```
+
+```markup
+<MyComponent v-model:title.capitalize="myText" />
+
+<!-- 以下是 MyComponent.vue -->
+
+<script setup>
+const props = defineProps({
+  modelValue: String,
+  modelModifiers: { default: () => ({}) }
+})
+
+const emit = defineEmits(['update:modelValue'])
+
+function emitValue (e) {
+  let value = e.target.value
+  if (props.modelModifiers.capitalize) {
+    value = value.charAt(0).toUpperCase()
+      + value.slice(1)
+  }
+  emit('update:modelValue', value)
+}
+</script>
+
+<template>
+  <input
+    type="text"
+    :value="modelValue"
+    @input="emitValue" />
+</template>
+```
+
+</Step>
+
+<Step subtitle="v-if / v-else / v-else-if 不再需要 key">
+
+```markup
+<div v-if="condition" key="yes">Yes</div>
+<div v-else key="no">No</div>
+```
+
+```markup
+<div v-if="condition">Yes</div>
+<div v-else>No</div>
+```
+
+</Step>
+
+<Step subtitle="template v-for key 不写在子元素上">
+
+```markup
+<template v-for="item in list">
+  <div :key="'heading-' + item.id"></div>
+  <span :key="'content-' + item.id"></span>
+</template>
+```
+
+```markup
+<template v-for="item in list" :key="item.id">
+  <div></div>
+  <span></span>
+</template>
+```
+
+</Step>
+
+<Step subtitle="v-if 优先级高于 v-for">
+
+```markup 1,12:16
+<div v-for="item in list" v-if="ok">{{item.prop}}</div>
+
+<script>
+export default {
+  data () {
+    return {
+      list: [/* ... */],
+      ok: true
+    }
+  },
+  render: h => {
+    return this.list.map(item => {
+      if (this.ok) {
+        return <div>{item.prop}</div>
+      }
+    })
+  }
+}
+</script>
+```
+
+```markup 1,14:18
+<div v-for="item in list" v-if="ok">{{item.prop}}</div>
+
+<script>
+import { ref, defineComponent } from 'vue'
+
+export default defineComponent(function () {
+  const list = ref([/* ... */])
+  const ok = ref(true)
+
+  return () => {
+    return (
+      <>
+        {
+          ok.value
+            ? list.value.map(item => {
+                return <div><{item.prop}</div>
+              })
+            : null
+        }
+      </>
+    )
+  }
+})
+</script>
+```
+
+</Step>
+
+<Step subtitle="v-bind 合并顺序改变">
+
+```markup
+<!-- 模板 -->
+<div id="red" v-bind="{ id: 'blue' }"></div>
+<!-- 结果 -->
+<div id="red"></div>
+```
+
+```markup
+<!-- 模板 -->
+<div id="red" v-bind="{ id: 'blue' }"></div>
+<!-- 结果 -->
+<div id="blue"></div>
+
+<!-- 模板 -->
+<div v-bind="{ id: 'blue' }" id="red"></div>
+<!-- 结果 -->
+<div id="red"></div>
+```
+
+</Step>
+
+<Step subtitle="v-on.native 修饰符已删除，未声明在 emits 中的原生事件会绑定到根元素上">
+
+```markup
+<MyComponent
+  @close="handleComponentEvent"
+  @click.native="handleNativeClickEvent" />
+```
+
+```markup
+<MyComponent
+  @close="handleComponentEvent"
+  @click="handleNativeClickEvent" />
+
+<script setup>
+defineEmits(['close'])
+</script>
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 组件变更
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```jsx
+// 左边是 Vue 2
+```
+
+```jsx
+// 右边是 Vue 3
+```
+
+</Step>
+
+<Step subtitle="函数组件，删除 functional">
+
+```jsx
+/* 单文件组件
+
+<template functional>
+  <component
+    :is="`h${props.level}`"
+    v-bind="attrs"
+    v-on="listeners" />
+</template>
+
+*/
+
+export default {
+  functional: true,
+  props: ['level'],
+  render (h, { props, data, children }) {
+    return h(`h${props.level}`,
+      data, children)
+  }
+}
+```
+
+```jsx
+/* 单文件组件
+
+<template>
+  <component
+    v-bind:is="`h${$props.level}`"
+    v-bind="$attrs" />
+</template>
+
+*/
+
+import { h } from 'vue'
+
+const DynamicHeading = (props, context) => {
+  return h(`h${props.level}`,
+    context.attrs, context.slots)
+}
+
+DynamicHeading.props = ['level']
+
+export default DynamicHeading
+```
+
+</Step>
+
+<Step subtitle="异步组件。声明 Vue Router 路由时 不应使用 defineAsyncComponent">
+
+```jsx
+const asyncModal = () => import('./Modal.vue')
+
+const asyncModalWithOptions = {
+  component: () => import('./Modal.vue'),
+  delay: 200,
+  timeout: 3000,
+  error: ErrorComponent,
+  loading: LoadingComponent
+}
+
+const asyncComponent = (resolve, reject) => {
+  /* ... */
+}
+```
+
+```jsx
+import { defineAsyncComponent } from 'vue'
+
+const asyncModal = defineAsyncComponent(
+  () => import('./Modal.vue'))
+
+const asyncModalWithOptions = defineAsyncComponent({
+  loader: () => import('./Modal.vue'),
+  delay: 200,
+  timeout: 3000,
+  errorComponent: ErrorComponent,
+  loadingComponent: LoadingComponent
+})
+
+const asyncComponent = defineAsyncComponent(
+  () =>
+    new Promise((resolve, reject) => {
+      /* ... */
+    })
+)
+```
+
+</Step>
+
+<Step subtitle="未声明在 emits 中的原生事件会绑定到根元素上">
+
+```jsx
+/* template
+
+<MyButton v-on:click="handleClick" />
+
+<template>
+  <button v-on:click="$emit('click', $event)">
+    OK
+  </button>
+</template>
+
+*/
+```
+
+```jsx
+/* template
+
+<MyButton v-on:click="handleClick" />
+
+<template>
+  <button v-on:click="$emit('click', $event)">
+    OK
+  </button>
+</template>
+
+*/
+
+import { defineComponent } from 'vue'
+
+export default defineComponent({
+  // 如果不声明，父组件 handleClick 会调用两次
+  emits: ['click']
+})
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 渲染函数变更
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```jsx
+// 左边是 Vue 2
+```
+
+```jsx
+// 右边是 Vue 3
+```
+
+</Step>
+
+<Step subtitle="h 由库提供而不是函数参数">
+
+```jsx 2:4
+export default {
+  render (h) {
+    return h('div')
+  }
+}
+```
+
+```jsx 1[10],4[10:23]
+import { h, defineComponent } from 'vue'
+
+export default defineComponent(function () {
+  return () => h('div')
+})
+```
+
+</Step>
+
+<Step subtitle="VNode 结构变更">
+
+```jsx
+{
+  staticClass: 'button',
+  class: {'is-outlined': isOutlined },
+  staticStyle: { color: '#34495E' },
+  style: { backgroundColor: buttonColor },
+  attrs: { id: 'submit' },
+  domProps: { innerHTML: '' },
+  on: { click: submitForm },
+  key: 'submit-button'
+}
+```
+
+```jsx
+{
+  class: ['button', { 'is-outlined': isOutlined }],
+  style: [
+    { color: '#34495E' },
+    { backgroundColor: buttonColor }
+  ],
+  id: 'submit',
+  innerHTML: '',
+  onClick: submitForm,
+  key: 'submit-button'
+}
+```
+
+</Step>
+
+<Step subtitle="被注册的组件要用 resolveComponent 来查找">
+
+```jsx 5
+Vue.component('button-counter', { /* ... */})
+
+export default {
+  render (h) {
+    return h('button-counter')
+  }
+}
+```
+
+```jsx 8:10
+import {
+  h,
+  defineComponent,
+  resolveComponent
+} from 'vue'
+
+export default defineComponent(function () {
+  const ButtonCounter =
+    resolveComponent('button-counter')
+  return /* render */ () => h(ButtonCounter)
+})
+```
+
+</Step>
+
+<Step subtitle="插槽统一">
+
+```jsx
+h(LayoutComponent, [
+  h('div', { slot: 'header' }, this.header),
+  h('div', { slot: 'content' }, this.content)
+])
+
+this.$scopedSlots.header
+```
+
+```jsx
+h(LayoutComponent, {}, {
+  header: () => h('div', this.header),
+  content: () => h('div', this.content)
+})
+
+this.$slots.header()
+```
+
+</Step>
+
+<Step subtitle="$listeners 被删除">
+
+```jsx 6
+<template>
+  <label>
+    <input
+      type="text"
+      v-bind="$attrs"
+      v-on="$listeners"
+    />
+  </label>
+</template>
+```
+
+```jsx
+<template>
+  <label>
+    <input type="text" v-bind="$attrs" />
+  </label>
+</template>
+```
+
+</Step>
+
+<Step subtitle="$attrs 包括 class 和 style，在 inheritAttrs === false 时不会应用到根元素上">
+
+```jsx 9:11
+<template>
+  <label>
+    <input type="text" v-bind="$attrs" />
+  </label>
+</template>
+
+<MyComponent id="my-id" class="my-class" />
+
+<label class="my-class">
+  <input type="text" id="my-id" />
+</label>
+```
+
+```jsx 9:11
+<template>
+  <label>
+    <input type="text" v-bind="$attrs" />
+  </label>
+</template>
+
+<MyComponent id="my-id" class="my-class" />
+
+<label>
+  <input type="text" id="my-id" class="my-class" />
+</label>
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 自定义元素互操作变更
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```jsx
+// 左边是 Vue 2
+```
+
+```jsx
+// 右边是 Vue 3
+```
+
+</Step>
+
+<Step subtitle="编译期指定自定义元素">
+
+```jsx
+Vue.config.ignoredElements = ['plastic-button']
+```
+
+```jsx
+// webpack 配置
+{
+  rules: [
+    {
+      test: /\.vue$/,
+      use: 'vue-loader',
+      options: {
+        compilerOptions: {
+          isCustomElement: tag => tag === 'plastic-button'
+        }
+      }
+    }
+  ]
+}
+
+// 或者运行时编译
+
+const app = Vue.createApp({})
+app.config.compilerOptions.isCustomElement =
+  tag => tag === 'plastic-button'
+```
+
+</Step>
+
+<Step subtitle="is 只在 <component> 可用，组件传 attribute，普通元素传给 createElement">
+
+```jsx
+<!-- 渲染 bar 组件 -->
+<Foo is="bar" />
+
+<!-- 渲染 baplastic-buttonr 组件 -->
+<button is="plastic-button">Click Me!</button>
+```
+
+```jsx
+<!-- 渲染 Foo 组件 -->
+<Foo is="bar" />
+
+<!-- createElement('button', { is: 'plastic-button' }) -->
+<button is="plastic-button">Click Me!</button>
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 被删除的 API
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```markup
+<!-- 左边是 Vue 2 -->
+```
+
+```markup
+<!-- 右边是 Vue 3 -->
+```
+
+</Step>
+
+<Step subtitle="keyCode 修饰符被删除">
+
+```markup
+<input @keyup.13="submit" />
+```
+
+```markup
+<input @keyup.page-down="nextPage" />
+```
+
+</Step>
+
+<Step subtitle="$on / $once / $off 被删除">
+
+```markup
+<script>
+const eventBus = new Vue()
+
+export default eventBus
+</script>
+```
+
+```markup
+<script>
+import emitter from 'tiny-emitter/instance'
+
+export default {
+  $on: (...args) => emitter.on(...args),
+  $once: (...args) => emitter.once(...args),
+  $off: (...args) => emitter.off(...args),
+  $emit: (...args) => emitter.emit(...args)
+}
+</script>
+```
+
+</Step>
+
+<Step subtitle="过滤器被删除，用 method 或 computed 代替">
+
+```markup 3,14:18
+<template>
+  <div>
+    <h1>Bank Account Balance</h1>
+    <p>{{ accountBalance | currencyUSD }}</p>
+  </div>
+</template>
+
+<script>
+export default {
+  props: {
+    accountBalance: {
+      type: Number,
+      required: true
+    }
+  },
+  filters: {
+    currencyUSD (value) {
+      return '$' + value
+    }
+  }
+}
+</script>
+```
+
+```markup 3,14:16
+<template>
+  <h1>Bank Account Balance</h1>
+  <p>{{ accountInUSD }}</p>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+
+const props = defineProps({
+  accountBalance: {
+    type: Number,
+    required: true
+  }
+})
+
+const accountInUSD = computed(() => {
+  return '$' + props.accountBalance
+})
+</script>
+```
+
+</Step>
+
+<Step subtitle="inline-template 被删除">
+
+```markup 1,6
+<my-component inline-template>
+  <div>
+    <p>...</p>
+    <p>...</p>
+  </div>
+</my-component>
+```
+
+```markup
+<!-- 不支持 -->
+```
+
+</Step>
+
+<Step subtitle="$chilren 被删除，可用 template ref 代替，ref 命名必须匹配">
+
+```markup 4,16
+<template>
+  <div>
+    <img alt="Vue logo" src="./assets/logo.png">
+    <MyButton>Change logo</MyButton>
+  </div>
+</template>
+
+<script>
+import MyButton from './MyButton'
+
+export default {
+  components: {
+    MyButton
+  },
+  mounted () {
+    console.log(this.$children) // [VueComponent]
+  }
+}
+</script>
+```
+
+```markup 4,11,14
+<template>
+  <div>
+    <img alt="Vue logo" src="./assets/logo.png">
+    <MyButton ref="myButton">Change logo</MyButton>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+
+const myButton = ref(null)
+
+onMounted(() => {
+  console.log(myButton.value)
+})
+</script>
+```
+
+</Step>
+
+<Step subtitle="propsData 被删除，createApp 第二个参数代替">
+
+```markup 8:10
+<script>
+const Comp = Vue.extend({
+  props: ['username'],
+  template: '<div>{{ username }}</div>'
+})
+
+new Comp({
+  propsData: {
+    username: 'Evan'
+  }
+})
+</script>
+```
+
+```markup 7
+<script>
+const app = createApp(
+  {
+    props: ['username'],
+    template: '<div>{{ username }}</div>'
+  },
+  { username: 'Evan' }
+)
+</script>
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 其他主要变更（非完整）
+
+仅列举常用功能。
+
+[https://v3-migration.vuejs.org/breaking-changes/](https://v3-migration.vuejs.org/breaking-changes/)
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```jsx
+// 左边是 Vue 2
+```
+
+```jsx
+// 右边是 Vue 3
+```
+
+</Step>
+
+<Step subtitle="data 必须是函数">
+
+```jsx 4:6
+import Vue from 'vue'
+
+new Vue({
+  data: {
+    apiKey: 'a1b2c3'
+  }
+})
+```
+
+```jsx 4:8
+import { createApp } from 'vue'
+
+createApp({
+  data () {
+    return {
+      apiKey: 'a1b2c3'
+    }
+  }
+})
+```
+
+</Step>
+
+<Step subtitle="mixin data 浅合并">
+
+```jsx 1:23
+const Mixin = {
+  data () {
+    return {
+      user: { name: 'Jack', id: 1 }
+    }
+  }
+}
+
+const CompA = {
+  mixins: [Mixin],
+  data() {
+    return {
+      user: { id: 2 }
+    }
+  }
+}
+
+{
+  "user": {
+    "id": 2,
+    "name": "Jack"
+  }
+}
+```
+
+```jsx 1:22
+const Mixin = {
+  data () {
+    return {
+      user: { name: 'Jack', id: 1 }
+    }
+  }
+}
+
+const CompA = {
+  mixins: [Mixin],
+  data() {
+    return {
+      user: { id: 2 }
+    }
+  }
+}
+
+{
+  "user": {
+    "id": 2
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="mount 时渲染内容不会替换根元素，而是修改根元素的 innerHTML">
+
+```jsx
+<body>
+  <div id="app">
+    Some app content
+  </div>
+</body>
+
+<body>
+  <div id="rendered">Hello Vue!</div>
+</body>
+```
+
+```jsx
+<body>
+  <div id="app">
+    Some app content
+  </div>
+</body>
+
+<body>
+  <div id="app" data-v-app="">
+    <div id="rendered">Hello Vue!</div>
+  </div>
+</body>
+```
+
+</Step>
+
+<Step subtitle="props default 函数不可访问 this，第一个参数是原始 props">
+
+```jsx 4:7
+export default {
+  props: {
+    theme: {
+      default () {
+        console.log(this)
+        return ''
+      }
+    }
+  }
+}
+```
+
+```jsx 6:8
+import { inject, defineComponent } from 'vue'
+
+export default defineComponent({
+  props: {
+    theme: {
+      default (props) {
+        return inject('theme', 'default-theme')
+      }
+    }
+  }
+})
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 感谢观看，一键三连
+
+[https://v3-migration.vuejs.org/breaking-changes/](https://v3-migration.vuejs.org/breaking-changes/)
