@@ -1,0 +1,966 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-tsx"
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# Vue 3 的 EffectScope 是怎么回事
+
+<Logo />
+
+<p style={{fontSize:'0.9em'}}>官方文档未详细讲解的 EffectScope 是什么？怎么用？为什么要用？怎么实现的？</p>
+
+<p style={{fontSize: '0.7em'}}>
+  参考 RFC：<a href="https://github.com/vuejs/rfcs/blob/master/active-rfcs/0041-reactivity-effect-scope.md">https://github.com/vuejs/rfcs/blob/master/active-rfcs/0041-reactivity-effect-scope.md</a>
+</p>
+
+---
+
+# 是什么
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="effectScope 函数签名"
+// detached 表示打开游离的 scope
+declare function effectScope (detached?: boolean): EffectScope
+```
+
+```ts 2[52:62],4:19 subtitle="EffectScope 接口"
+// detached 表示打开游离的 scope
+declare function effectScope (detached?: boolean): EffectScope
+
+declare interface EffectScope {
+  /**
+   * 立即调用传入的函数 fn
+   * 收集函数 fn 中的响应式效果
+   * 如 computed / watchEffect 等
+   * scope 关闭后再调用则一定返回 undefined
+   */
+  run<T> (fn: () => T): T | undefined
+
+  /**
+   * scope 关闭
+   * 统一清理此 scope 中收集到的响应式效果
+   * computed / watchEffect 不再有响应
+   */
+  stop (): void
+}
+```
+
+```ts subtitle="getCurrentScope 函数签名"
+// detached 表示打开游离的 scope
+declare function effectScope (detached?: boolean): EffectScope
+
+declare interface EffectScope {
+  /**
+   * 立即调用传入的函数 fn
+   * 收集函数 fn 中的响应式效果
+   * 如 computed / watchEffect 等
+   * scope 关闭后再调用则一定返回 undefined
+   */
+  run<T> (fn: () => T): T | undefined
+
+  /**
+   * scope 关闭
+   * 统一清理此 scope 中收集到的响应式效果
+   * computed / watchEffect 不再有响应
+   */
+  stop (): void
+}
+
+// 获取当前的 EffectScope，不在任何 scope 内则返回 undefined
+declare function getCurrentScope (): EffectScope | undefined
+```
+
+```ts subtitle="onScopeDispose 函数签名"
+// detached 表示打开游离的 scope
+declare function effectScope (detached?: boolean): EffectScope
+
+declare interface EffectScope {
+  /**
+   * 立即调用传入的函数 fn
+   * 收集函数 fn 中的响应式效果
+   * 如 computed / watchEffect 等
+   * scope 关闭后再调用则一定返回 undefined
+   */
+  run<T> (fn: () => T): T | undefined
+
+  /**
+   * scope 关闭
+   * 统一清理此 scope 中收集到的响应式效果
+   * computed / watchEffect 不再有响应
+   */
+  stop (): void
+}
+
+// 获取当前的 EffectScope，不在任何 scope 内则返回 undefined
+declare function getCurrentScope (): EffectScope | undefined
+
+// 添加当前 scope 关闭时要执行的回调
+declare function onScopeDispose (fn: () => void): void
+```
+
+</CodeSurfer>
+
+---
+
+# 怎么用
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="vue 组件外单独使用"
+import {
+  effectScope,
+  ref,
+  computed,
+  watch,
+  watchEffect
+} from 'vue'
+```
+
+```ts 2,9:10 subtitle="vue 组件 setup 外打开 EffectScope"
+import {
+  effectScope,
+  ref,
+  computed,
+  watch,
+  watchEffect
+} from 'vue'
+
+// 打开一个 EffectScope
+const scope = effectScope()
+```
+
+```ts subtitle="scope.run() 自动收集响应式效果"
+import {
+  effectScope,
+  ref,
+  computed,
+  watch,
+  watchEffect
+} from 'vue'
+
+// 打开一个 EffectScope
+const scope = effectScope()
+
+const counter = ref(0)
+
+// 在此 scope 中创建响应式效果
+const result = scope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  watch(doubled, () => {
+    console.log(doubled.value)
+  })
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+
+  return { doubled }
+})
+```
+
+```ts 16:22,27:28 subtitle="scope.stop() 调用后 scope 内的响应式效果将全部失效"
+import {
+  effectScope,
+  ref,
+  computed,
+  watch,
+  watchEffect
+} from 'vue'
+
+// 打开一个 EffectScope
+const scope = effectScope()
+
+const counter = ref(0)
+
+// 在此 scope 中创建响应式效果
+const result = scope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  watch(doubled, () => {
+    console.log(doubled.value)
+  })
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+
+  return { doubled }
+})
+
+// 清理此 scope 中所有的响应式效果
+scope.stop()
+```
+
+</CodeSurfer>
+
+---
+
+# 为什么要用
+
+---
+
+<CodeSurfer>
+
+```tsx subtitle="在 vue 组件中"
+import {
+  defineComponent, ref
+} from 'vue'
+
+export default defineComponent(function setup () {
+  const counter = ref(0)
+
+  return () => {
+    return (
+      <div>
+        <p>counter: {counter.value}</p>
+      </div>
+    )
+  }
+})
+```
+
+```tsx subtitle="setup 中响应式效果会自动绑定到组件实例上，当组件卸载时自动清理与组件绑定的响应式效果"
+import {
+  defineComponent, ref
+  , computed
+  , watchEffect
+  , watch
+} from 'vue'
+
+export default defineComponent(function setup () {
+  const counter = ref(0)
+  // 以下 computed watchEffect watch 的响应式效果
+  // 在组件卸载时将自动被清理
+  // 不需要开发者手动清理
+  const doubled = computed(() => counter.value * 2)
+  watchEffect(() => {
+    console.log(`counter: ${counter.value}`)
+  })
+  watch(doubled, () => {
+    console.log(doubled.value)
+  })
+
+  return () => {
+    return (
+      <div>
+        <p>counter: {counter.value}</p>
+        <p>doubled: {doubled.value}</p>
+      </div>
+    )
+  }
+})
+```
+
+```tsx 8,10:12,21:23,26 subtitle="如果在 vue 组件的 setup 外使用响应式效果忘记手动清理，将导致内存泄漏"
+import {
+  defineComponent, ref
+  , computed
+  , watchEffect
+  , watch
+} from 'vue'
+
+function useCounterOutsideOfComponent () {
+  const counter = ref(0)
+  // 在 vue 组件的 setup 外使用
+  // 以下响应式效果不会被自动清理
+  // 将导致内存泄漏！
+  const doubled = computed(() => counter.value * 2)
+  watchEffect(() => {
+    console.log(`counter: ${counter.value}`)
+  })
+  watch(doubled, () => {
+    console.log(doubled.value)
+  })
+
+  return {
+    counter, doubled
+  }
+}
+
+const state = useCounterOutsideOfComponent()
+```
+
+```tsx subtitle="此时需要手动清理响应式效果，代码写得很麻烦"
+import {
+  defineComponent, ref
+  , computed
+  , watchEffect
+  , watch
+} from 'vue'
+
+function useCounterOutsideOfComponent () {
+  // 手动收集响应式效果的清理函数，有亿点点麻烦
+  const disposables: (() => void)[] = []
+
+  const counter = ref(0)
+  const doubled = computed(() => counter.value * 2)
+  disposables.push(() => doubled.effect.stop())
+
+  const stopWatch1 = watchEffect(() => {
+    console.log(`counter: ${counter.value}`)
+  })
+  disposables.push(stopWatch1)
+
+  const stopWatch2 = watch(doubled, () => {
+    console.log(doubled.value)
+  })
+  disposables.push(stopWatch2)
+
+  const dispose = () => {
+    disposables.forEach(f => f())
+    disposables.length = 0
+  }
+
+  return {
+    counter, doubled
+    , dispose
+  }
+}
+
+const state = useCounterOutsideOfComponent()
+
+// 在其他地方用完以后要记得清理
+state.dispose()
+```
+
+```tsx subtitle="改用 effectScope 自动收集"
+import {
+  defineComponent, ref
+  , computed
+  , watchEffect
+  , watch
+  , effectScope
+} from 'vue'
+
+function useCounterOutsideOfComponent () {
+  const scope = effectScope()
+
+  const counter = ref(0)
+
+  const doubled = scope.run(() => {
+    const doubled = computed(() => counter.value * 2)
+
+    watchEffect(() => {
+      console.log(`counter: ${counter.value}`)
+    })
+
+    watch(doubled, () => {
+      console.log(doubled.value)
+    })
+
+    return doubled
+  }) 
+
+  const dispose = () => {
+    scope.stop()
+  }
+
+  return {
+    counter, doubled
+    , dispose
+  }
+}
+
+const state = useCounterOutsideOfComponent()
+
+// 在其他地方用完以后要记得清理
+state.dispose()
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 嵌套模式
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="嵌套的 scopes"
+const scope = effectScope()
+
+scope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+})
+
+// 清理所有响应式效果，包括嵌套的 scopes
+scope.stop()
+```
+
+```ts 6:9,14:15 subtitle="里层 scope 随外层一起关闭"
+const scope = effectScope()
+
+scope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  // 外层 scope 关闭时，里层也会关闭，不需要手动调用里层的 stop()
+  effectScope().run(() => {
+    watch(doubled, () => console.log(doubled.value))
+  })
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+})
+
+// 清理所有响应式效果，包括嵌套的 scopes
+scope.stop()
+```
+
+</CodeSurfer>
+
+---
+
+# 游离嵌套模式
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="外层 scope"
+const parentScope = effectScope()
+
+parentScope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+})
+```
+
+```ts subtitle="游离 scope 不受外层影响"
+let nestedScope
+
+const parentScope = effectScope()
+
+parentScope.run(() => {
+  const doubled = computed(() => counter.value * 2)
+
+  // 里层游离的 scope 与外层无关，不会随外层关闭而一起关闭
+  nestedScope = effectScope(true /* detached */)
+  nestedScope.run(() => {
+    watch(doubled, () => console.log(doubled.value))
+  })
+
+  watchEffect(() => console.log('Count: ', doubled.value))
+})
+
+// 清理外层 scope 所有的响应式效果，里层的不会清理
+parentScope.stop()
+
+// 清理里层 scope 所有的响应式效果
+nestedScope.stop()
+```
+
+</CodeSurfer>
+
+---
+
+# EffectScope 关闭事件
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="创建"
+import { effectScope, onScopeDispose } from 'vue'
+
+const scope = effectScope()
+```
+
+```ts subtitle="添加当前 scope 关闭时要执行的回调。setup 函数执行时已经有一个为组件打开的 EffectScope 了，所以在 setup 函数内部等同于 onUnmounted"
+import { effectScope, onScopeDispose } from 'vue'
+
+const scope = effectScope()
+
+scope.run(() => {
+  onScopeDispose(() => {
+    console.log('cleaned!')
+  })
+})
+
+scope.stop() // 输出 'cleaned!'
+```
+
+</CodeSurfer>
+
+---
+
+# 共享可组合函数
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="鼠标例子"
+function useMouse () {
+  const x = ref(0)
+  const y = ref(0)
+
+  return { x, y }
+}
+```
+
+```ts subtitle="在这个可组合函数中，添加了 window 事件全局副作用"
+function useMouse () {
+  const x = ref(0)
+  const y = ref(0)
+
+  function handler (e) {
+    x.value = e.x
+    y.value = e.y
+  }
+
+  window.addEventListener('mousemove', handler)
+
+  onUnmounted(() => {
+    window.removeEventListener('mousemove', handler)
+  })
+
+  return { x, y }
+}
+```
+
+```diff 2:3,10,16 subtitle="如果要在多个组件中使用，每次都会创建新的 x y ref 并添加 window 鼠标事件监听，有损效率"
+```
+
+```diff 12[2:13] subtitle="我们想要让 x y 在多个组件中共享引用，但是 onUnmounted 是和组件耦合的，每个组件卸载时都会清除鼠标事件监听"
+```
+
+```ts 12[2:16] subtitle="我们可以先把 onUnmounted 换成 onScopeDispose，效果是一样的，因为 setup 执行前会打开一个 EffectScope"
+function useMouse () {
+  const x = ref(0)
+  const y = ref(0)
+
+  function handler (e) {
+    x.value = e.x
+    y.value = e.y
+  }
+
+  window.addEventListener('mousemove', handler)
+
+  onScopeDispose(() => {
+    window.removeEventListener('mousemove', handler)
+  })
+
+  return { x, y }
+}
+```
+
+```ts subtitle="然后写一个管理 EffectScope 的工具函数，便于灵活控制 useMouse 调用时所属的 scope"
+function useMouse () {
+  const x = ref(0)
+  const y = ref(0)
+
+  function handler (e) {
+    x.value = e.x
+    y.value = e.y
+  }
+
+  window.addEventListener('mousemove', handler)
+
+  onScopeDispose(() => {
+    window.removeEventListener('mousemove', handler)
+  })
+
+  return { x, y }
+}
+
+function createSharedComposable (composable) {
+  let subscribers = 0
+  let state, scope
+
+  const dispose = () => {
+    if (scope && --subscribers <= 0) {
+      scope.stop()
+      state = scope = null
+    }
+  }
+
+  return (...args) => {
+    subscribers++
+    if (!state) {
+      scope = effectScope(true)
+      state = scope.run(() => composable(...args))
+    }
+    onScopeDispose(dispose)
+    return state
+  }
+}
+
+const useSharedMouse = createSharedComposable(useMouse)
+```
+
+```diff 19[34:43],30,34[30:49],38,41[47:54] subtitle="接收一个可组合函数作为参数，返回一个新的可组合函数"
+```
+
+```diff 20,24[17:35],31,37 subtitle="工具函数中记录了可组合函数被使用的次数"
+```
+
+```diff 21,32:35,37 subtitle="第一次调用可组合函数时开一个游离的 scope，可组合函数内部的 onScopeDispose 就不与组件实例相关了，调用可组合函数后返回缓存的状态"
+```
+
+```diff 21,23:28,36 subtitle="组件卸载时会关闭内部的 scope，调用 dispose，次数减 1，当次数减到 0 时关闭 scope 并清除缓存的状态"
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 临时 EffectScope
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="来写个组件"
+import {
+  defineComponent,
+  ref,
+  watch,
+  effectScope,
+  onScopeDispose
+} from 'vue'
+
+function useMouse () { /* ... */ }
+
+export default defineComponent(function setup () {
+  return () => { /* ... */ }
+})
+```
+
+```ts subtitle="立即 watch enabled ref"
+import {
+  defineComponent,
+  ref,
+  watch,
+  effectScope,
+  onScopeDispose
+} from 'vue'
+
+function useMouse () { /* ... */ }
+
+export default defineComponent(function setup () {
+  const enabled = ref(false)
+
+  watch(
+    enabled,
+    () => {
+      if (enabled.value) {
+
+      } else {
+
+      }
+    },
+    { immediate: true }
+  )
+
+  return () => { /* ... */ }
+})
+```
+
+```ts subtitle="enabled 为 true 时打开一个 effectScope，在这个 scope 中调用 useMouse，保存鼠标坐标 ref"
+import {
+  defineComponent,
+  ref,
+  watch,
+  effectScope,
+  onScopeDispose
+} from 'vue'
+
+function useMouse () { /* ... */ }
+
+export default defineComponent(function setup () {
+  const enabled = ref(false)
+  let mouseState, mouseScope
+
+  watch(
+    enabled,
+    () => {
+      if (enabled.value) {
+        mouseScope = effectScope()
+        mouseState = mouseScope.run(() => useMouse())
+      } else {
+
+      }
+    },
+    { immediate: true }
+  )
+
+  return () => { /* ... */ }
+})
+```
+
+```ts subtitle="enabled 为 false 时关闭 scope 并清除状态，组件卸载时也进行同样的清理操作"
+import {
+  defineComponent,
+  ref,
+  watch,
+  effectScope,
+  onScopeDispose
+} from 'vue'
+
+function useMouse () { /* ... */ }
+
+export default defineComponent(function setup () {
+  const enabled = ref(false)
+  let mouseState, mouseScope
+
+  const dispose = () => {
+    mouseScope && mouseScope.stop()
+    mouseScope = mouseState = null
+  }
+
+  watch(
+    enabled,
+    () => {
+      if (enabled.value) {
+        mouseScope = effectScope()
+        mouseState = mouseScope.run(() => useMouse())
+      } else {
+        dispose()
+      }
+    },
+    { immediate: true }
+  )
+
+  onScopeDispose(dispose)
+
+  return () => { /* ... */ }
+})
+```
+
+```diff subtitle="整个过程不需要使用 onUnmounted 钩子"
+```
+
+</CodeSurfer>
+
+---
+
+# EffectScope 关键源码实现
+
+Vue 版本：v3.2.31
+
+---
+
+<CodeSurfer>
+
+```js subtitle="保存当前的 EffectScope"
+let activeEffectScope
+```
+
+```js subtitle="effectScope getCurrentScope"
+let activeEffectScope
+
+class EffectScope {
+
+}
+
+function effectScope (detached) {
+  return new EffectScope(detached)
+}
+
+function getCurrentScope () {
+  return activeEffectScope
+}
+```
+
+```js subtitle="EffectScope 构造函数、recordEffectScope、onScopeDispose"
+let activeEffectScope
+
+class EffectScope {
+  constructor (detached = false) {
+    this.active = true // 标记自己是否还活着
+    this.effects = [] // 保存响应式效果实例
+    this.cleanups = [] // 保存 onScopeDispose 回调
+
+    if (!detached && activeEffectScope) {
+      this.parent = activeEffectScope // 上一级 scope
+      // 自己在上级 scope 的子 scope 数组中的下标
+      this.index =
+        (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(
+          this
+        ) - 1
+    }
+  }
+}
+
+function effectScope (detached) {
+  return new EffectScope(detached)
+}
+
+function recordEffectScope (effect, scope = activeEffectScope) {
+  if (scope && scope.active) {
+    scope.effects.push(effect)
+  }
+}
+
+function getCurrentScope () {
+  return activeEffectScope
+}
+
+function onScopeDispose (fn) {
+  if (activeEffectScope) {
+    activeEffectScope.cleanups.push(fn)
+  }
+}
+```
+
+```js subtitle="run 方法，fn 中调用其他响应式 API，会调用 getCurrentScope 和 recordEffectScope 收集响应式效果"
+let activeEffectScope
+
+class EffectScope {
+  constructor (detached = false) {
+    this.active = true // 标记自己是否还活着
+    this.effects = [] // 保存响应式效果实例
+    this.cleanups = [] // 保存 onScopeDispose 回调
+
+    if (!detached && activeEffectScope) {
+      this.parent = activeEffectScope // 上一级 scope
+      // 自己在上级 scope 的子 scope 数组中的下标
+      this.index =
+        (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(
+          this
+        ) - 1
+    }
+  }
+
+  run (fn) {
+    if (this.active) {
+      try {
+        activeEffectScope = this
+        return fn()
+      } finally {
+        activeEffectScope = this.parent
+      }
+    }
+  }
+}
+
+function effectScope (detached) {
+  return new EffectScope(detached)
+}
+
+function recordEffectScope (effect, scope = activeEffectScope) {
+  if (scope && scope.active) {
+    scope.effects.push(effect)
+  }
+}
+
+function getCurrentScope () {
+  return activeEffectScope
+}
+
+function onScopeDispose (fn) {
+  if (activeEffectScope) {
+    activeEffectScope.cleanups.push(fn)
+  }
+}
+```
+
+```js subtitle="stop 方法，关闭 scope 及其子级 scopes"
+let activeEffectScope
+
+class EffectScope {
+  constructor (detached = false) {
+    this.active = true // 标记自己是否还活着
+    this.effects = [] // 保存响应式效果实例
+    this.cleanups = [] // 保存 onScopeDispose 回调
+
+    if (!detached && activeEffectScope) {
+      this.parent = activeEffectScope // 上一级 scope
+      // 自己在上级 scope 的子 scope 数组中的下标
+      this.index =
+        (activeEffectScope.scopes || (activeEffectScope.scopes = [])).push(
+          this
+        ) - 1
+    }
+  }
+
+  run (fn) {
+    if (this.active) {
+      try {
+        activeEffectScope = this
+        return fn()
+      } finally {
+        activeEffectScope = this.parent
+      }
+    }
+  }
+
+  stop (fromParent) {
+    if (this.active) {
+      let i, l
+      // 清理所有收集到的响应式效果
+      for (i = 0, l = this.effects.length; i < l; i++) {
+        this.effects[i].stop()
+      }
+      // 调用 onScopeDispose 注册的回调
+      for (i = 0, l = this.cleanups.length; i < l; i++) {
+        this.cleanups[i]()
+      }
+      // 关闭子级 scopes
+      if (this.scopes) {
+        for (i = 0, l = this.scopes.length; i < l; i++) {
+          this.scopes[i].stop(true /* fromParent */)
+        }
+      }
+      // 在上一级 scope 解开对自己的引用
+      if (this.parent && !fromParent) {
+        // 直接改下标很巧妙，O(1) 的时间复杂度
+        const last = this.parent.scopes.pop()
+        if (last && last !== this) {
+          this.parent.scopes[this.index] = last
+          last.index = this.index
+        }
+      }
+      this.active = false
+    }
+  }
+}
+
+function effectScope (detached) {
+  return new EffectScope(detached)
+}
+
+function recordEffectScope (effect, scope = activeEffectScope) {
+  if (scope && scope.active) {
+    scope.effects.push(effect)
+  }
+}
+
+function getCurrentScope () {
+  return activeEffectScope
+}
+
+function onScopeDispose (fn) {
+  if (activeEffectScope) {
+    activeEffectScope.cleanups.push(fn)
+  }
+}
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+如果对你有帮助可以一键三连
+
+<p style={{fontSize: '0.7em'}}>
+  参考 RFC：<a href="https://github.com/vuejs/rfcs/blob/master/active-rfcs/0041-reactivity-effect-scope.md">https://github.com/vuejs/rfcs/blob/master/active-rfcs/0041-reactivity-effect-scope.md</a>
+</p>
