@@ -52,9 +52,9 @@ class PromiseReaction {
   }
 }
 
-const MyPromiseReactionType = {
-  FULFILL: 'fulfill',
-  REJECT: 'reject'
+PromiseReaction.Type = {
+  FULFILL: 0,
+  REJECT: 1
 }
 
 function triggerPromiseReaction (reactions, reactionType) {
@@ -73,7 +73,7 @@ function triggerPromiseReaction (reactions, reactionType) {
     let currentReaction = current
     current = currentReaction.next
 
-    if (reactionType === MyPromiseReactionType.FULFILL) {
+    if (reactionType === PromiseReaction.Type.FULFILL) {
       queueMicrotask(currentReaction.fulfillHandler)
     } else {
       queueMicrotask(currentReaction.rejectHandler)
@@ -124,7 +124,7 @@ class MyPromise {
       this._status = PromiseStatus.REJECTED // 修改状态
       this._reactionsOrResult = reason // 保存失败原因
       // 反转链表后，逐个塞入微任务队列
-      triggerPromiseReaction(reactions, MyPromiseReactionType.REJECT)
+      triggerPromiseReaction(reactions, PromiseReaction.Type.REJECT)
     }
 
     // resolve 的最后一步 修改状态
@@ -134,7 +134,7 @@ class MyPromise {
       const reactions = this._reactionsOrResult
       this._status = PromiseStatus.FULFILLED
       this._reactionsOrResult = value
-      triggerPromiseReaction(reactions, MyPromiseReactionType.FULFILL)
+      triggerPromiseReaction(reactions, PromiseReaction.Type.FULFILL)
     }
 
     // 传给 resolver 的 resolve 函数
@@ -157,23 +157,27 @@ class MyPromise {
             reject(new TypeError('Chaining cycle detected for promise'))
             return
           }
-          let called = false // 确保 resolve 或 reject 只被调用一次
 
           // ES规范：确保在对任何周围代码的评估完成后对 then 方法进行评估
           queueMicrotask(() => {
-            try {
-              then.call(value, (v) => {
-                if (called) return
-                called = true
-                resolve(v)
-              }, (e) => {
-                if (called) return
-                called = true
-                reject(e)
-              })
-            } catch (err) {
+            let called = false // 确保 resolve 或 reject 只被调用一次
+
+            const onfulfilled = (v) => {
               if (called) return
-              reject(err)
+              called = true
+              resolve(v)
+            }
+
+            const onrejected = (e) => {
+              if (called) return
+              called = true
+              reject(e)
+            }
+
+            try {
+              then.call(value, onfulfilled, onrejected)
+            } catch (err) {
+              onrejected(err)
             }
           })
         } else {
@@ -227,8 +231,6 @@ class MyPromise {
       this._hasHandler = true
     })
   }
-
-  // 以下可以不看了，都是基于上面的实现
 
   ['catch'] (onrejected) {
     return this.then(undefined, onrejected)
