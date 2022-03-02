@@ -20,24 +20,24 @@ const PromiseStatus = {
   REJECTED: 'rejected'
 }
 
-function createFulfillHandler (promise, onfulfilled, resultPromiseDeferred) {
+function createFulfillTask (reactionsOrResult, onfulfilled, resultPromiseDeferred) {
   return function () {
     try {
       typeof onfulfilled === 'function'
-        ? resultPromiseDeferred.resolve(onfulfilled(promise._reactionsOrResult))
-        : resultPromiseDeferred.resolve(promise._reactionsOrResult)
+        ? resultPromiseDeferred.resolve(onfulfilled(reactionsOrResult))
+        : resultPromiseDeferred.resolve(reactionsOrResult)
     } catch (err) {
       resultPromiseDeferred.reject(err)
     }
   }
 }
 
-function createRejectHandler (promise, onrejected, resultPromiseDeferred) {
+function createRejectTask (reactionsOrResult, onrejected, resultPromiseDeferred) {
   return function () {
     try {
       typeof onrejected === 'function'
-        ? resultPromiseDeferred.resolve(onrejected(promise._reactionsOrResult))
-        : resultPromiseDeferred.reject(promise._reactionsOrResult)
+        ? resultPromiseDeferred.resolve(onrejected(reactionsOrResult))
+        : resultPromiseDeferred.reject(reactionsOrResult)
     } catch (err) {
       resultPromiseDeferred.reject(err)
     }
@@ -45,10 +45,11 @@ function createRejectHandler (promise, onrejected, resultPromiseDeferred) {
 }
 
 class PromiseReaction {
-  constructor (next, fulfillHandler, rejectHandler) {
+  constructor (next, fulfillHandler, rejectHandler, deferred) {
     this.next = next
     this.fulfillHandler = fulfillHandler
     this.rejectHandler = rejectHandler
+    this.deferred = deferred
   }
 }
 
@@ -57,7 +58,7 @@ PromiseReaction.Type = {
   REJECT: 1
 }
 
-function triggerPromiseReaction (reactions, reactionType) {
+function triggerPromiseReaction (reactions, value, reactionType) {
   let current = reactions
   let reversed = null
   // 链表反转
@@ -74,17 +75,29 @@ function triggerPromiseReaction (reactions, reactionType) {
     current = currentReaction.next
 
     if (reactionType === PromiseReaction.Type.FULFILL) {
-      queueMicrotask(currentReaction.fulfillHandler)
+      queueMicrotask(
+        createFulfillTask(
+          value,
+          currentReaction.fulfillHandler,
+          currentReaction.deferred
+        )
+      )
     } else {
-      queueMicrotask(currentReaction.rejectHandler)
+      queueMicrotask(
+        createRejectTask(
+          value,
+          currentReaction.rejectHandler,
+          currentReaction.deferred
+        )
+      )
     }
   }
 }
 
 class MyPromise {
-  constructor (resolver) {
-    if (typeof resolver !== 'function') {
-      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+  constructor (executor) {
+    if (typeof executor !== 'function') {
+      throw new TypeError(`Promise resolver ${executor} is not a function`)
     }
 
     /**
@@ -124,75 +137,76 @@ class MyPromise {
       this._status = PromiseStatus.REJECTED // 修改状态
       this._reactionsOrResult = reason // 保存失败原因
       // 反转链表后，逐个塞入微任务队列
-      triggerPromiseReaction(reactions, PromiseReaction.Type.REJECT)
+      triggerPromiseReaction(reactions, reason, PromiseReaction.Type.REJECT)
     }
 
     // resolve 的最后一步 修改状态
-    const _resolve = (value) => {
+    const fulfill = (value) => {
       // 确保这里传进来的 value 不是 Thenable 对象
       // 和上面 reject 同理
       const reactions = this._reactionsOrResult
       this._status = PromiseStatus.FULFILLED
       this._reactionsOrResult = value
-      triggerPromiseReaction(reactions, PromiseReaction.Type.FULFILL)
+      triggerPromiseReaction(reactions, value, PromiseReaction.Type.FULFILL)
     }
 
     // 传给 resolver 的 resolve 函数
     const resolve = (value) => {
       if (this._status !== PromiseStatus.PENDING) return
-      if ((value !== null && typeof value === 'object') || typeof value === 'function') {
-        // 对象或函数可能是 Thenable
 
-        let then
-        try {
-          then = value.then // 如果 then 是 getter 可能会抛异常
-        } catch (err) {
-          reject(err)
-          return
-        }
-
-        if (typeof then === 'function') {
-          // Thenable 不能是自己
-          if (value === this) {
-            reject(new TypeError('Chaining cycle detected for promise'))
-            return
-          }
-
-          // ES规范：确保在对任何周围代码的评估完成后对 then 方法进行评估
-          queueMicrotask(() => {
-            let called = false // 确保 resolve 或 reject 只被调用一次
-
-            const onfulfilled = (v) => {
-              if (called) return
-              called = true
-              resolve(v)
-            }
-
-            const onrejected = (e) => {
-              if (called) return
-              called = true
-              reject(e)
-            }
-
-            try {
-              then.call(value, onfulfilled, onrejected)
-            } catch (err) {
-              onrejected(err)
-            }
-          })
-        } else {
-          // then 不是函数，value 不是 Thenable
-          _resolve(value)
-        }
-      } else {
-        // value 不是 Thenable
-        _resolve(value)
+      // value 不是对象也不是函数，不可能是 Thenable
+      if ((value === null || typeof value !== 'object') && typeof value !== 'function') {
+        fulfill(value)
+        return
       }
+      
+      let then
+      try {
+        then = value.then // 如果 then 是 getter 可能会抛异常
+      } catch (err) {
+        reject(err)
+        return
+      }
+
+      // then 不是函数，value 不是 Thenable
+      if (typeof then !== 'function') {
+        fulfill(value)
+        return
+      }
+
+      // Thenable 不能是自己
+      if (value === this) {
+        reject(new TypeError('Chaining cycle detected for promise'))
+        return
+      }
+
+      // ES 规范：确保在对任何周围代码的评估完成后对 then 方法进行评估
+      queueMicrotask(() => {
+        let called = false // 确保 resolve 或 reject 只被调用一次
+
+        const onfulfilled = (v) => {
+          if (called) return
+          called = true
+          resolve(v)
+        }
+
+        const onrejected = (e) => {
+          if (called) return
+          called = true
+          reject(e)
+        }
+
+        try {
+          then.call(value, onfulfilled, onrejected)
+        } catch (err) {
+          onrejected(err)
+        }
+      })
     }
 
     // 同步执行 resolver，抛异常就进 reject
     try {
-      resolver(resolve, reject)
+      executor(resolve, reject)
     } catch (err) {
       reject(err)
     }
@@ -209,22 +223,37 @@ class MyPromise {
   then (onfulfilled, onrejected) {
     return new MyPromise((resolve, reject) => {
       const resultPromiseDeferred = { resolve, reject }
+      const onFulfilled = typeof onfulfilled === 'function' ? onfulfilled : undefined
+      const onRejected = typeof onrejected === 'function' ? onrejected : undefined
 
       if (this._status === PromiseStatus.PENDING) {
         // PENDING 状态就像监听事件一样，往队列里塞
         const reaction = new PromiseReaction(
           this._reactionsOrResult,
-          createFulfillHandler(this, onfulfilled, resultPromiseDeferred),
-          createRejectHandler(this, onrejected, resultPromiseDeferred)
+          onFulfilled,
+          onRejected,
+          resultPromiseDeferred
         )
         this._reactionsOrResult = reaction
       } else {
         if (this._status === PromiseStatus.FULFILLED) {
           // 已成功，直接微任务走成功回调
-          queueMicrotask(createFulfillHandler(this, onfulfilled, resultPromiseDeferred))
+          queueMicrotask(
+            createFulfillTask(
+              this._reactionsOrResult,
+              onFulfilled,
+              resultPromiseDeferred
+            )
+          )
         } else {
           // 已失败，直接微任务走失败回调
-          queueMicrotask(createRejectHandler(this, onrejected, resultPromiseDeferred))
+          queueMicrotask(
+            createRejectTask(
+              this._reactionsOrResult,
+              onRejected,
+              resultPromiseDeferred
+            )
+          )
         }
       }
 
