@@ -20,47 +20,121 @@ const PromiseStatus = {
   REJECTED: 'rejected'
 }
 
+function createFulfillHandler (promise, onfulfilled, resultPromiseDeferred) {
+  return function () {
+    try {
+      typeof onfulfilled === 'function'
+        ? resultPromiseDeferred.resolve(onfulfilled(promise._reactionsOrResult))
+        : resultPromiseDeferred.resolve(promise._reactionsOrResult)
+    } catch (err) {
+      resultPromiseDeferred.reject(err)
+    }
+  }
+}
+
+function createRejectHandler (promise, onrejected, resultPromiseDeferred) {
+  return function () {
+    try {
+      typeof onrejected === 'function'
+        ? resultPromiseDeferred.resolve(onrejected(promise._reactionsOrResult))
+        : resultPromiseDeferred.reject(promise._reactionsOrResult)
+    } catch (err) {
+      resultPromiseDeferred.reject(err)
+    }
+  }
+}
+
+class PromiseReaction {
+  constructor (next, fulfillHandler, rejectHandler) {
+    this.next = next
+    this.fulfillHandler = fulfillHandler
+    this.rejectHandler = rejectHandler
+  }
+}
+
+const MyPromiseReactionType = {
+  FULFILL: 'fulfill',
+  REJECT: 'reject'
+}
+
+function triggerPromiseReaction (reactions, reactionType) {
+  let current = reactions
+  let reversed = null
+  // 链表反转
+  while (current !== null) {
+    let currentReaction = current
+    current = currentReaction.next
+    currentReaction.next = reversed
+    reversed = currentReaction
+  }
+  current = reversed
+
+  while (current !== null) {
+    let currentReaction = current
+    current = currentReaction.next
+
+    if (reactionType === MyPromiseReactionType.FULFILL) {
+      queueMicrotask(currentReaction.fulfillHandler)
+    } else {
+      queueMicrotask(currentReaction.rejectHandler)
+    }
+  }
+}
+
 class MyPromise {
   constructor (resolver) {
     if (typeof resolver !== 'function') {
       throw new TypeError(`Promise resolver ${resolver} is not a function`)
     }
 
-    this._status = PromiseStatus.PENDING // Promise 状态
-    this._result = undefined // 成功值
-    this._reason = undefined // 失败值
+    /**
+     * Promise 状态
+     * @type {PromiseStatus}
+     */
+    this._status = PromiseStatus.PENDING
 
-    // then 和 catch 可以调用多次，所以需要队列
-    this._onSuccess = [] // 成功事件队列
-    this._onFail = [] // 失败事件队列
+    /**
+     * PENDING 状态为回调链表
+     * 非 PENDING 状态为成功值或失败值
+     */
+    this._reactionsOrResult = null
+
+    /**
+     * 是否有 then 或 catch 回调
+     * @type {boolean}
+     */
+    this._hasHandler = false
 
     // 传给 resolver 的 reject 函数
     const reject = (reason) => {
-      if (this._status === PromiseStatus.PENDING) {
-        this._status = PromiseStatus.REJECTED
-        this._reason = reason // 保存失败原因
-        this._onSuccess.length = 0 // 清空成功事件队列
-        // 微任务走 catch 回调
+      if (this._status !== PromiseStatus.PENDING) return
+
+      // 检查是否添加了 then 或 catch 回调
+      if (!this._hasHandler) {
+        // 异步再检查一次，因为 then 会同步设置 _hasHandler 为 true
+        // 如果错误无法向下传播就报错
         queueMicrotask(() => {
-          while (this._onFail.length) {
-            this._onFail.shift()()
+          if (!this._hasHandler) {
+            console.error('UnhandledPromiseRejectionWarning: ', reason)
           }
         })
       }
+
+      const reactions = this._reactionsOrResult // 链表
+      this._status = PromiseStatus.REJECTED // 修改状态
+      this._reactionsOrResult = reason // 保存失败原因
+      // 反转链表后，逐个塞入微任务队列
+      triggerPromiseReaction(reactions, MyPromiseReactionType.REJECT)
     }
 
     // resolve 的最后一步 修改状态
     const _resolve = (value) => {
-      // 确保这里传进来的 value 不是 Thenable
+      // 确保这里传进来的 value 不是 Thenable 对象
       // 和上面 reject 同理
+      const reactions = this._reactionsOrResult
       this._status = PromiseStatus.FULFILLED
-      this._result = value
-      this._onFail.length = 0
-      queueMicrotask(() => {
-        while (this._onSuccess.length) {
-          this._onSuccess.shift()()
-        }
-      })
+      this._reactionsOrResult = value
+      triggerPromiseReaction(reactions, MyPromiseReactionType.FULFILL)
     }
 
     // 传给 resolver 的 resolve 函数
@@ -78,26 +152,30 @@ class MyPromise {
         }
 
         if (typeof then === 'function') {
+          // Thenable 不能是自己
           if (value === this) {
-            // Thenable 不能是自己
             reject(new TypeError('Chaining cycle detected for promise'))
             return
           }
           let called = false // 确保 resolve 或 reject 只被调用一次
-          try {
-            then.call(value, (v) => {
+
+          // ES规范：确保在对任何周围代码的评估完成后对 then 方法进行评估
+          queueMicrotask(() => {
+            try {
+              then.call(value, (v) => {
+                if (called) return
+                called = true
+                resolve(v)
+              }, (e) => {
+                if (called) return
+                called = true
+                reject(e)
+              })
+            } catch (err) {
               if (called) return
-              called = true
-              resolve(v)
-            }, (e) => {
-              if (called) return
-              called = true
-              reject(e)
-            })
-          } catch (err) {
-            if (called) return
-            reject(err)
-          }
+              reject(err)
+            }
+          })
         } else {
           // then 不是函数，value 不是 Thenable
           _resolve(value)
@@ -126,42 +204,34 @@ class MyPromise {
 
   then (onfulfilled, onrejected) {
     return new MyPromise((resolve, reject) => {
-      // 成功和失败都包一层，让新返回的 Promise 有结果
-      const onSuccess = () => {
-        try {
-          typeof onfulfilled === 'function'
-            ? resolve(onfulfilled(this._result))
-            : resolve(this._result)
-        } catch (err) {
-          reject(err)
-        }
-      }
-      const onFail = () => {
-        try {
-          typeof onrejected === 'function'
-            ? resolve(onrejected(this._reason))
-            : reject(this._reason)
-        } catch (err) {
-          reject(err)
+      const resultPromiseDeferred = { resolve, reject }
+
+      if (this._status === PromiseStatus.PENDING) {
+        // PENDING 状态就像监听事件一样，往队列里塞
+        const reaction = new PromiseReaction(
+          this._reactionsOrResult,
+          createFulfillHandler(this, onfulfilled, resultPromiseDeferred),
+          createRejectHandler(this, onrejected, resultPromiseDeferred)
+        )
+        this._reactionsOrResult = reaction
+      } else {
+        if (this._status === PromiseStatus.FULFILLED) {
+          // 已成功，直接微任务走成功回调
+          queueMicrotask(createFulfillHandler(this, onfulfilled, resultPromiseDeferred))
+        } else {
+          // 已失败，直接微任务走失败回调
+          queueMicrotask(createRejectHandler(this, onrejected, resultPromiseDeferred))
         }
       }
 
-      if (this._status === PromiseStatus.FULFILLED) {
-        // 已成功，直接微任务走成功回调
-        queueMicrotask(onSuccess)
-      } else if (this._status === PromiseStatus.REJECTED) {
-        // 已失败，直接微任务走失败回调
-        queueMicrotask(onFail)
-      } else {
-        // PENDING 状态就像监听事件一样，往队列里塞
-        this._onSuccess.push(onSuccess)
-        this._onFail.push(onFail)
-      }
+      this._hasHandler = true
     })
   }
 
+  // 以下可以不看了，都是基于上面的实现
+
   ['catch'] (onrejected) {
-    return this.then(_ => _, onrejected)
+    return this.then(undefined, onrejected)
   }
 
   ['finally'] (onsettled) {
