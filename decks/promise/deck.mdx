@@ -1,9 +1,161 @@
-import { CodeSurfer } from "code-surfer"
+import { CodeSurfer, CodeSurferColumns, Step } from "code-surfer"
 import customTheme from './theme.js'
 
 export const theme = customTheme
 
-# 用 JavaScript 实现 Promise
+# 一道高难度的 Promise 题目
+
+从一道高难度的 Promise 题目理解 V8 引擎是如何实现 Promise 的
+
+---
+
+<CodeSurferColumns sizes={[1,1,1]}>
+
+<Step subtitle="最近我看到这样一个题，问代码运行输出什么">
+
+```js
+// ...
+```
+
+```js
+Promise.resolve().then(() => {
+  console.log(0)
+  return Promise.resolve(4)
+}).then(res => {
+  console.log(res)
+})
+
+Promise.resolve().then(() => {
+  console.log(1)
+}).then(() => {
+  console.log(2)
+}).then(() => {
+  console.log(3)
+}).then(() => {
+  console.log(5)
+}).then(() => {
+  console.log(6)
+})
+```
+
+```js
+// ...
+```
+
+</Step>
+
+<Step subtitle="这个题可以变一下，左右两边的代码片段各输出什么呢？">
+
+```js
+Promise.resolve().then(() => {
+  console.log(0)
+  return 4
+}).then(res => {
+  console.log(res)
+})
+
+Promise.resolve().then(() => {
+  console.log(1)
+}).then(() => {
+  console.log(2)
+}).then(() => {
+  console.log(3)
+}).then(() => {
+  console.log(5)
+}).then(() => {
+  console.log(6)
+})
+```
+
+```js 1,20
+
+Promise.resolve().then(() => {
+  console.log(0)
+  return Promise.resolve(4)
+}).then(res => {
+  console.log(res)
+})
+
+Promise.resolve().then(() => {
+  console.log(1)
+}).then(() => {
+  console.log(2)
+}).then(() => {
+  console.log(3)
+}).then(() => {
+  console.log(5)
+}).then(() => {
+  console.log(6)
+})
+
+```
+
+```js
+Promise.resolve().then(() => {
+  console.log(0)
+  return { then: f => f(4) }
+}).then(res => {
+  console.log(res)
+})
+
+Promise.resolve().then(() => {
+  console.log(1)
+}).then(() => {
+  console.log(2)
+}).then(() => {
+  console.log(3)
+}).then(() => {
+  console.log(5)
+}).then(() => {
+  console.log(6)
+})
+```
+
+</Step>
+
+<Step subtitle="仔细观察，只有第三行不一样">
+
+```diff 3,16[100]
+```
+
+```diff 4,17[100]
+```
+
+```diff 3,16[100]
+```
+
+</Step>
+
+<Step subtitle="把代码往浏览器里贴一下，很容易得到答案分别是 01423456 / 0123456 / 0124356">
+
+```diff
+```
+
+```diff 2:19
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 为什么
+
+要解释这个问题，首先我们必须先搞清楚 V8 引擎是如何实现 Promise 的
+
+V8 源码是用 C++ 和 Torque 来实现 Promise 类的
+
+---
+
+# 为什么
+
+为了便于理解，接下来我将用 JavaScript 来仿照 V8 源码实现一个 Promise 类
+
+这套实现已通过 Promise/A+ 规范全部测试用例，动态演示题解也会在后面
 
 ---
 
@@ -12,7 +164,7 @@ export const theme = customTheme
 ```js file=./step/1.js subtitle="核心是实现构造函数和 then 成员函数，其他 API 可以基于这两个实现"
 ```
 
-```js file=./step/2.js subtitle="同步调用 executor"
+```js file=./step/2.js subtitle="同步调用构造函数接收到的 executor"
 ```
 
 ```js 7:14,16[16:22,25:31],18[7:12] file=./step/3.js subtitle="添加 resolve 和 reject 函数"
@@ -30,13 +182,13 @@ export const theme = customTheme
 ```js file=./step/7.js subtitle="PENDING 状态时，_reactionsOrResult 是链表，创建一个 PromiseReaction 保存回调插入到表头"
 ```
 
-```js 39[26:44],59:71 file=./step/8.js subtitle="PromiseReaction 类，next 表示下一个 reaction 节点"
+```js 39[26:44],59:71 file=./step/8.js subtitle="next 表示下一个 reaction 节点，deferred 用来通知衍生的 Promise 改变状态"
 ```
 
 ```js 34:36,48:54,56:62 file=./step/9.js subtitle="非 PENDING 状态时，_reactionsOrResult 是成功或失败的结果值，把回调函数包一层塞入微任务队列"
 ```
 
-```js file=./step/10.js subtitle="把 then 接收到的回调函数包一层，当自己有结果时也让衍生的 Promise 有结果"
+```js file=./step/10.js subtitle="把 then 接收到的回调函数包一层，当自己有结果时也通知衍生的 Promise 改变状态，实现传播效果"
 ```
 
 ```diff 32:68 subtitle="then 实现完毕，重点是根据自身不同状态做不同处理，PENDING 时做“监听”，非 PENDING 时立即入队"
@@ -48,25 +200,25 @@ export const theme = customTheme
 ```js 7:9,35 file=./step/12.js subtitle="triggerPromiseReaction"
 ```
 
-```js file=./step/13.js subtitle="triggerPromiseReaction 反转 reactions 链表后，按类型把回调函数挨个塞入微任务队列"
+```js file=./step/13.js subtitle="reactions 是不断往头部插入的链表，先进先出需要先反转链表，遍历链表挨个包一层塞入微任务队列"
 ```
 
 ```js file=./step/14.js subtitle="fulfill 和 reject 类似，不需要检查衍生的 Promise"
 ```
 
-```js file=./step/15.js subtitle="resolve 需要额外处理 Thenable 对象，value 不是对象也不是函数，不可能是 Thenable"
+```js file=./step/15.js subtitle="resolve 需要额外处理 Thenable 对象，value 不是对象也不是函数，不可能是 Thenable，所以直接 fulfill"
 ```
 
 ```js file=./step/16.js subtitle="判断是否为 Thenable 对象，如果 then 是 getter 可能会抛错。如果是 Thenable，确保不是实例本身"
 ```
 
-```js 87,103:123 file=./step/17.js subtitle="ES 规范规定 Thenable 的 then 方法必须放在新的一层微任务中调用"
+```js 103:123 file=./step/17.js subtitle="ES 规范规定 Thenable 的 then 方法必须放在新的一层微任务中调用"
 ```
 
 ```diff 70:124 subtitle="构造函数实现完毕，重点是在 resolve 或 reject 被调用时修改状态，保存结果，入队所有 then 添加的回调"
 ```
 
-```js file=./step/18.js subtitle="catch finally resolve reject"
+```js file=./step/18.js subtitle="构造函数和 then 是基于 V8 的实现写的，catch finally 等其他 API 基于构造函数和 then 就可以实现"
 ```
 
 ```js file=./step/19.js subtitle=""
@@ -78,46 +230,708 @@ export const theme = customTheme
 ```js file=./step/21.js subtitle=""
 ```
 
-```diff
+```diff subtitle="这套实现已通过 Promise/A+ 全部官方测试用例，源码仓库在演示的最后"
 ```
 
 </CodeSurfer>
 
 ---
 
-# 运行测试用例
+# 再回到题目
 
 ---
 
-<CodeSurfer>
+<CodeSurferColumns sizes={[1,1]}>
 
-```js title="运行测试用例"
-const promisesAplusTests = require("promises-aplus-tests")
-const { MyPromise } = require('./promise.js')
+<Step subtitle="左侧原题，右侧题解">
 
-const adapter = {
-  resolved: MyPromise.resolve.bind(MyPromise),
-  rejected: MyPromise.reject.bind(MyPromise),
-  deferred () {
-    const r = {}
-    const promise = new MyPromise((resolve, reject) => {
-      r.resolve = resolve
-      r.reject = reject
-    })
-    r.promise = promise
-    return r
-  }
-}
+```js
+Promise.resolve().then(() => {
+  console.log(0)
+  return Promise.resolve(4)
+}).then(res => {
+  console.log(res)
+})
 
-promisesAplusTests(adapter, (err) => {
-  console.error(err)
+Promise.resolve().then(() => {
+  console.log(1)
+}).then(() => {
+  console.log(2)
+}).then(() => {
+  console.log(3)
+}).then(() => {
+  console.log(5)
+}).then(() => {
+  console.log(6)
 })
 ```
 
-</CodeSurfer>
+```js
+// 实时状态与微任务队列
+
+[ // 头
+
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="为了便于理解，左侧 Promise 全部拆开写">
+
+```js 1:27 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+[ // 头
+
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 1 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+
+[ // 头
+
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 2:5 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 7:9 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 11 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 12:14 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 15:17 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 18:20 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 21:23 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第一轮同步代码">
+
+```js 24:26 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+
+[ // 头
+  () => {
+    console.log(0)
+    const p3 = Promise.resolve(4)
+    return p3
+  }
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+<Step subtitle="第二轮同步代码">
+
+```js 3 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+
+[ // 头
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第二轮同步代码">
+
+```js 4 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => {
+    console.log(1)
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第二轮同步代码，这里重点，then 在新的一轮微任务中调用，理解了这里其他两个题目变形也就可以理解了">
+
+```js 5 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: pending [() => { console.log(2) }]
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => {
+    console.log(1)
+  }
+  () => {
+    p3.then((/* 4 */) => {
+      p2.resolve(4)
+    })
+  }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第三轮同步代码">
+
+```js 13 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => {
+    p3.then((/* 4 */) => {
+      p2.resolve(4)
+    })
+  }
+  () => { console.log(2) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第四轮同步代码，因为 p3 非 pending，所以 then 回调直接入队。如果 p3 是同步 thenable，会直接调用 p2.resolve(4) 不入队">
+
+```js 27 file=./solution/resolve.js
+```
+
+```js 18:20
+// 实时状态与微任务队列
+
+// 打印：0 1
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => {
+    p3.then((/* 4 */) => {
+      p2.resolve(4)
+    })
+  }
+  () => { console.log(2) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第四轮同步代码，then 回调入队">
+
+```js 27 file=./solution/resolve.js
+```
+
+```js 18:20
+// 实时状态与微任务队列
+
+// 打印：0 1
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: pending [() => { console.log(3) }]
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { console.log(2) }
+  () => { p2.resolve(4) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第五轮同步代码">
+
+```js 16 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { p2.resolve(4) }
+  () => { console.log(3) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第六轮同步代码">
+
+```js 27 file=./solution/resolve.js
+```
+
+```js 17
+// 实时状态与微任务队列
+
+// 打印：0 1 2
+
+// p1: fulfilled(undefined)
+// p2: pending [res => { console.log(res) }]
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { p2.resolve(4) }
+  () => { console.log(3) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第六轮同步代码">
+
+```js 27 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2
+
+// p1: fulfilled(undefined)
+// p2: fulfilled(4)
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: pending [() => { console.log(5) }]
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { console.log(3) }
+  (/* 4 */) => { console.log(4) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第七轮同步代码">
+
+```js 19 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2 3
+
+// p1: fulfilled(undefined)
+// p2: fulfilled(4)
+// p4: pending
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: fulfilled(undefined)
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  (/* 4 */) => { console.log(4) }
+  () => { console.log(5) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第八轮同步代码">
+
+```js 8 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2 3 4
+
+// p1: fulfilled(undefined)
+// p2: fulfilled(4)
+// p4: fulfilled(undefined)
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: fulfilled(undefined)
+// p9: pending [() => { console.log(6) }]
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { console.log(5) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第九轮同步代码">
+
+```js 22 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2 3 4 5
+
+// p1: fulfilled(undefined)
+// p2: fulfilled(4)
+// p4: fulfilled(undefined)
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: fulfilled(undefined)
+// p9: fulfilled(undefined)
+// p10: pending
+// p3: fulfilled(4)
+
+[ // 头
+  () => { console.log(6) }
+] // 尾
+```
+
+</Step>
+
+<Step subtitle="第十轮同步代码">
+
+```js 25 file=./solution/resolve.js
+```
+
+```js
+// 实时状态与微任务队列
+
+// 打印：0 1 2 3 4 5 6
+
+// p1: fulfilled(undefined)
+// p2: fulfilled(4)
+// p4: fulfilled(undefined)
+// p5: fulfilled(undefined)
+// p6: fulfilled(undefined)
+// p7: fulfilled(undefined)
+// p8: fulfilled(undefined)
+// p9: fulfilled(undefined)
+// p10: fulfilled(undefined)
+// p3: fulfilled(4)
+
+[ // 头
+
+] // 尾
+```
+
+</Step>
+
+</CodeSurferColumns>
 
 ---
 
-# 代码仓库
+# 感谢观看
+
+如果对你有帮助可以一键三连
 
 [https://github.com/toyobayashi/deck/tree/main/decks/promise](https://github.com/toyobayashi/deck/tree/main/decks/promise)
