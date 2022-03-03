@@ -9,16 +9,16 @@ export const theme = customTheme
 
 <CodeSurfer>
 
-```js file=./step/1.js subtitle="MyPromise 类"
+```js file=./step/1.js subtitle="核心是实现构造函数和 then 成员函数，其他 API 可以基于这两个实现"
 ```
 
-```js file=./step/2.js subtitle="同步调用 resolver"
+```js file=./step/2.js subtitle="同步调用 executor"
 ```
 
 ```js 7:14,16[16:22,25:31],18[7:12] file=./step/3.js subtitle="添加 resolve 和 reject 函数"
 ```
 
-```js file=./step/4.js subtitle="状态枚举"
+```js file=./step/4.js subtitle="状态枚举，Promise 一开始是 PENDING 状态"
 ```
 
 ```js file=./step/5.js subtitle="_hasHandler 标记是否有 then 或 catch 衍生的 Promise"
@@ -30,13 +30,16 @@ export const theme = customTheme
 ```js file=./step/7.js subtitle="PENDING 状态时，_reactionsOrResult 是链表，创建一个 PromiseReaction 保存回调插入到表头"
 ```
 
-```js 37[26:44],56:67 file=./step/8.js subtitle="PromiseReaction 类"
+```js 39[26:44],59:71 file=./step/8.js subtitle="PromiseReaction 类，next 表示下一个 reaction 节点"
 ```
 
-```js 39:40,56:78 file=./step/9.js subtitle="把 then 接收到的回调函数包一层，当自己有结果时也让衍生的 Promise 有结果"
+```js 34:36,48:54,56:62 file=./step/9.js subtitle="非 PENDING 状态时，_reactionsOrResult 是成功或失败的结果值，把回调函数包一层塞入微任务队列"
 ```
 
-```js 32[9:19,22:31],34,45,47 file=./step/10.js subtitle="非 PENDING 状态时，直接把回调函数包一层塞入微任务队列"
+```js file=./step/10.js subtitle="把 then 接收到的回调函数包一层，当自己有结果时也让衍生的 Promise 有结果"
+```
+
+```diff 32:68 subtitle="then 实现完毕，重点是根据自身不同状态做不同处理，PENDING 时做“监听”，非 PENDING 时立即入队"
 ```
 
 ```js file=./step/11.js subtitle="reject 先检查是否有衍生的 Promise，然后修改状态和保存错误后调用 triggerPromiseReaction"
@@ -48,16 +51,19 @@ export const theme = customTheme
 ```js file=./step/13.js subtitle="triggerPromiseReaction 反转 reactions 链表后，按类型把回调函数挨个塞入微任务队列"
 ```
 
-```js file=./step/14.js subtitle="resolve 和 reject 类似，不需要检查衍生的 Promise"
+```js file=./step/14.js subtitle="fulfill 和 reject 类似，不需要检查衍生的 Promise"
 ```
 
-```js file=./step/15.js subtitle="resolve 需要额外处理 Thenable 对象"
+```js file=./step/15.js subtitle="resolve 需要额外处理 Thenable 对象，value 不是对象也不是函数，不可能是 Thenable"
 ```
 
-```js file=./step/16.js subtitle="判断是否为 Thenable 对象，如果 then 是 getter 可能会抛错"
+```js file=./step/16.js subtitle="判断是否为 Thenable 对象，如果 then 是 getter 可能会抛错。如果是 Thenable，确保不是实例本身"
 ```
 
-```js file=./step/17.js subtitle="ES 规范规定 Thenable 必须放在新的一层微任务中处理"
+```js 87,103:123 file=./step/17.js subtitle="ES 规范规定 Thenable 的 then 方法必须放在新的一层微任务中调用"
+```
+
+```diff 70:124 subtitle="构造函数实现完毕，重点是在 resolve 或 reject 被调用时修改状态，保存结果，入队所有 then 添加的回调"
 ```
 
 ```js file=./step/18.js subtitle="catch finally resolve reject"

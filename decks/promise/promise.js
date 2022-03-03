@@ -20,24 +20,24 @@ const PromiseStatus = {
   REJECTED: 'rejected'
 }
 
-function createFulfillTask (reactionsOrResult, onfulfilled, resultPromiseDeferred) {
+function createFulfillTask (value, onfulfilled, resultPromiseDeferred) {
   return function () {
     try {
       typeof onfulfilled === 'function'
-        ? resultPromiseDeferred.resolve(onfulfilled(reactionsOrResult))
-        : resultPromiseDeferred.resolve(reactionsOrResult)
+        ? resultPromiseDeferred.resolve(onfulfilled(value))
+        : resultPromiseDeferred.resolve(value)
     } catch (err) {
       resultPromiseDeferred.reject(err)
     }
   }
 }
 
-function createRejectTask (reactionsOrResult, onrejected, resultPromiseDeferred) {
+function createRejectTask (reason, onrejected, resultPromiseDeferred) {
   return function () {
     try {
       typeof onrejected === 'function'
-        ? resultPromiseDeferred.resolve(onrejected(reactionsOrResult))
-        : resultPromiseDeferred.reject(reactionsOrResult)
+        ? resultPromiseDeferred.resolve(onrejected(reason))
+        : resultPromiseDeferred.reject(reason)
     } catch (err) {
       resultPromiseDeferred.reject(err)
     }

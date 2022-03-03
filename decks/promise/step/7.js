@@ -5,9 +5,9 @@ const PromiseStatus = {
 }
 
 class MyPromise {
-  constructor (resolver) {
-    if (typeof resolver !== 'function') {
-      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+  constructor (executor) {
+    if (typeof executor !== 'function') {
+      throw new TypeError(`Promise resolver ${executor} is not a function`)
     }
 
     this._status = PromiseStatus.PENDING
@@ -23,7 +23,7 @@ class MyPromise {
     }
 
     try {
-      resolver(resolve, reject)
+      executor(resolve, reject)
     } catch (err) {
       reject(err)
     }
@@ -32,12 +32,15 @@ class MyPromise {
   then (onfulfilled, onrejected) {
     return new MyPromise((resolve, reject) => {
       const resultPromiseDeferred = { resolve, reject }
+      const onFulfilled = typeof onfulfilled === 'function' ? onfulfilled : undefined
+      const onRejected = typeof onrejected === 'function' ? onrejected : undefined
 
       if (this._status === PromiseStatus.PENDING) {
         const reaction = new PromiseReaction(
           this._reactionsOrResult,
-          createFulfillHandler(this, onfulfilled, resultPromiseDeferred),
-          createRejectHandler(this, onrejected, resultPromiseDeferred)
+          onFulfilled,
+          onRejected,
+          resultPromiseDeferred
         )
         this._reactionsOrResult = reaction
       } else {

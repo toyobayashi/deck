@@ -1,13 +1,17 @@
 class MyPromise {
-  constructor (resolver) {
-    if (typeof resolver !== 'function') {
-      throw new TypeError(`Promise resolver ${resolver} is not a function`)
+  constructor (executor) {
+    if (typeof executor !== 'function') {
+      throw new TypeError(`Promise resolver ${executor} is not a function`)
     }
 
     try {
-      resolver(resolve, reject)
+      executor(resolve, reject)
     } catch (err) {
       reject(err)
     }
+  }
+
+  then (onfulfilled, onrejected) {
+
   }
 }

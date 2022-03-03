@@ -1,5 +1,9 @@
 class MyPromise {
-  constructor (resolver) {
+  constructor (executor) {
     
+  }
+
+  then (onfulfilled, onrejected) {
+
   }
 }
