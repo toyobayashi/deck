@@ -1,4 +1,5 @@
 {
+  "name": "reactivuety",
   "scripts": {
     "postinstall": "node ./scripts/postinstall.js"
   },
