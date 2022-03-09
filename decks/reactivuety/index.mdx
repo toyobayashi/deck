@@ -128,7 +128,7 @@ import * as ReactDOM from 'react-dom'
 ```jsx subtitle="defineComponent 接收函数或对象"
 import { forwardRef } from 'react'
 
-function useSetup () { /* ... */ }
+function useSetup (setup, props) { /* ... */ }
 
 function defineComponent (options) {
 
@@ -138,7 +138,7 @@ function defineComponent (options) {
 ```jsx subtitle="如果 options 是函数，转换成选项对象再调用一次自身"
 import { forwardRef } from 'react'
 
-function useSetup () { /* ... */ }
+function useSetup (setup, props) { /* ... */ }
 
 function defineComponent (options) {
   if (typeof options === 'function') {
@@ -153,7 +153,7 @@ function defineComponent (options) {
 ```jsx subtitle="forwardRef 创建组件，在组件中使用 useSetup hook"
 import { forwardRef } from 'react'
 
-function useSetup () { /* ... */ }
+function useSetup (setup, props) { /* ... */ }
 
 function defineComponent (options) {
   if (typeof options === 'function') {
@@ -188,6 +188,129 @@ function defineComponent (options) {
 
   throw new TypeError('Invalid component option')
 }
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 兼容 React 的 ref
+
+---
+
+<CodeSurfer>
+
+```js subtitle="看例子"
+import {
+  onMounted
+} from '@vue/runtime-core'
+
+function defineComponent (options) { /* ... */ }
+
+function ref (value) {
+  // TODO
+}
+
+const App = defineComponent(function () {
+  const inputRef = ref(null)
+
+  onMounted(() => {
+    console.log(inputRef.value) // => <input>
+  })
+
+  return () => {
+    return <input ref={inputRef} />
+  }
+})
+```
+
+```diff 7:9,12,15,19 subtitle="要使 vue 的 ref 在 react 的 jsx 中正常工作"
+```
+
+```js subtitle="包一层，Object.defineProperty 设置 current 属性的 getter 和 setter"
+import {
+  ref as _ref,
+  onMounted
+} from '@vue/runtime-core'
+
+function defineComponent (options) { /* ... */ }
+
+function addCurrentProperty (r) {
+  Object.defineProperty(r, 'current', {
+    configurable: true,
+    enumerable: true,
+    get () {
+      return r.value
+    },
+    set (newVal) {
+      r.value = newVal
+    }
+  })
+  return r
+}
+
+function ref (value) {
+  return addCurrentProperty(_ref(value))
+}
+
+const App = defineComponent(function () {
+  const inputRef = ref(null)
+
+  onMounted(() => {
+    console.log(inputRef.value) // => <input>
+  })
+
+  return () => {
+    return <input ref={inputRef} />
+  }
+})
+```
+
+```js subtitle="shallowRef 也同样"
+import {
+  ref as _ref,
+  shallowRef as _shallowRef,
+  onMounted
+} from '@vue/runtime-core'
+
+function defineComponent (options) { /* ... */ }
+
+function addCurrentProperty (r) {
+  Object.defineProperty(r, 'current', {
+    configurable: true,
+    enumerable: true,
+    get () {
+      return r.value
+    },
+    set (newVal) {
+      r.value = newVal
+    }
+  })
+  return r
+}
+
+function ref (value) {
+  return addCurrentProperty(_ref(value))
+}
+
+function shallowRef (value) {
+  return addCurrentProperty(_shallowRef(value))
+}
+
+const App = defineComponent(function () {
+  const inputRef = ref(null)
+
+  onMounted(() => {
+    console.log(inputRef.value) // => <input>
+  })
+
+  return () => {
+    return <input ref={inputRef} />
+  }
+})
 ```
 
 ```diff
