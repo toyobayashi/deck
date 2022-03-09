@@ -1,0 +1,273 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-tsx"
+import Logo from './Logo.jsx'
+
+import App1 from './src/App1.jsx'
+import App2 from './src/App2.jsx'
+import App3 from './src/App3.jsx'
+import App4 from './src/App4.jsx'
+
+export const theme = customTheme
+
+# 在 React 中使用 Vue 3
+
+<Logo />
+
+使用 Vue 3 Composition API 编写 React 组件
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step subtitle="本期来实现用 Composition API 编写 React 组件，先看看最终的用法">
+
+```jsx
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
+```
+
+```jsx
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
+```
+
+</Step>
+
+<Step subtitle="第一种写法：useSetup hook 返回响应式状态或渲染函数">
+
+```jsx file=./src/example1.jsx
+```
+
+```jsx file=./src/example2.jsx
+```
+
+</Step>
+
+<Step subtitle="第二种写法：defineComponent 传入 setup 函数或选项">
+
+```jsx file=./src/example3.jsx
+```
+
+```jsx file=./src/example4.jsx
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 运行结果
+
+<p>1 秒后出现 4 次 onMounted 触发 count 改变的 Alert</p>
+<p>点击 ADD 按钮 count + 1，显示 Alert</p>
+
+<App1 />
+<App2 />
+<App3 />
+<App4 />
+
+---
+
+# 实现 useSetup
+
+---
+
+<CodeSurfer>
+
+```jsx file=./step/1.jsx subtitle="从 @vue/runtime-core 导入 vue 的 API"
+```
+
+```jsx file=./step/2.jsx subtitle="用 react 的 ref 保存 vue 组件实例，第一步打开 EffectScope 并获取当前的 vue 实例作为父组件"
+```
+
+```jsx file=./step/3.jsx subtitle="添加可用的 vue 生命周期，初始化为 null，key 要和 vue 的实现一致"
+```
+
+```jsx file=./step/4.jsx subtitle="准备 updateCallback 函数用来强制刷新组件"
+```
+
+```jsx 28:32,40,43 file=./step/5.jsx subtitle="触发生命周期回调"
+```
+
+```jsx file=./step/6.jsx subtitle="设置当前处理中的实例，在 scope 中调用 setup 函数，自动收集响应式效果，最后重置当前实例"
+```
+
+```jsx 83,92:111 file=./step/7.jsx subtitle="清空生命周期回调函数"
+```
+
+```jsx file=./step/8.jsx subtitle="如果 setup 返回函数，则用 effect 包一层收集 render 函数中的响应式状态，有改变时刷新组件"
+```
+
+```jsx file=./step/9.jsx subtitle="onTrack 和 onTrigger 钩子"
+```
+
+```jsx file=./step/10.jsx subtitle="如果 setup 不返回函数，则在 scope 中调用 watch 监听返回值变化刷新组件，保存浅层脱引用的对象"
+```
+
+```jsx file=./step/11.jsx subtitle="useEffect 触发 mounted ，beforeUnmount 和 unmounted，返回 render 函数或响应式状态"
+```
+
+```jsx 34[27:31],38:53,71 file=./step/12.jsx subtitle="useEffect 更新 vue 的 props 代理，触发依赖了 props 的响应式效果"
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 实现 defineComponent
+
+---
+
+<CodeSurfer>
+
+```jsx subtitle="defineComponent 接收函数或对象"
+import { forwardRef } from 'react'
+
+function useSetup () { /* ... */ }
+
+function defineComponent (options) {
+
+}
+```
+
+```jsx subtitle="如果 options 是函数，转换成选项对象再调用一次自身"
+import { forwardRef } from 'react'
+
+function useSetup () { /* ... */ }
+
+function defineComponent (options) {
+  if (typeof options === 'function') {
+    return defineComponent({
+      name: options.name,
+      setup: options
+    })
+  }
+}
+```
+
+```jsx subtitle="forwardRef 创建组件，在组件中使用 useSetup hook"
+import { forwardRef } from 'react'
+
+function useSetup () { /* ... */ }
+
+function defineComponent (options) {
+  if (typeof options === 'function') {
+    return defineComponent({
+      name: options.name,
+      setup: options
+    })
+  }
+
+  if (typeof options === 'object' && options !== null) {
+    const setup = options.setup
+    const renderFunctionProvided = typeof options.render === 'function'
+    const SetupComponent = forwardRef(function (props, ref) {
+      const stateOrRenderFunction = useSetup(setup, props)
+      if (typeof stateOrRenderFunction === 'function') {
+        return stateOrRenderFunction(props, ref)
+      }
+      if (renderFunctionProvided) {
+        const state = stateOrRenderFunction
+        return options.render(state, props, ref)
+      }
+
+      throw new TypeError('render function is not provided')
+    })
+
+    if (typeof options.name === 'string') {
+      SetupComponent.displayName = options.name
+    }
+
+    return SetupComponent
+  }
+
+  throw new TypeError('Invalid component option')
+}
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 处理 @vue/runtime-core 未导出的 API
+
+版本：v3.2.31
+
+利用 NPM 的 postinstall 钩子，在 npm install 完成后执行脚本去修改 package
+
+---
+
+<CodeSurferColumns sizes={[1,2]}>
+
+<Step>
+
+```json
+{
+  "scripts": {
+    "postinstall": "node ./scripts/postinstall.js"
+  }
+}
+```
+
+```js
+// postinstall.js
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```js
+// postinstall.js
+
+const { readFileSync, readdirSync, writeFileSync } = require('fs')
+const { join } = require('path')
+const runtime = require.resolve('@vue/runtime-core')
+const runtimeDist = join(runtime, '../dist')
+const files = (readdirSync(runtimeDist)).filter(file => file.endsWith('.js'))
+const exp = [
+  'setCurrentInstance',
+  'unsetCurrentInstance',
+  'currentInstance',
+  'createHook',
+  'queuePreFlushCb'
+]
+const getExports = isEsm =>
+  exp.map(e => isEsm ? `export { ${e} };` : `exports.${e} = ${e};`)
+    .join('\n')
+for (const file of files) {
+  let content = readFileSync(join(runtimeDist, file), 'utf8')
+  if (content.match(/export.*setCurrentInstance/)) {
+    continue
+  }
+  content += `\n${getExports(file.includes('esm'))}`
+  writeFileSync(join(runtimeDist, file), content, 'utf8')
+}
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 源码仓库
+
+如果对你有帮助可以一键三连
+
+我的完整 TypeScript 实现已发布 NPM @tybys/reactivuety
+
+[https://github.com/toyobayashi/reactivuety](https://github.com/toyobayashi/reactivuety)
+
+部分借鉴：[https://github.com/antfu/reactivue/tree/v1.0.0-beta.4](https://github.com/antfu/reactivue/tree/v1.0.0-beta.4)

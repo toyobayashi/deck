@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "postinstall": "node ./scripts/postinstall.js"
+  },
+  "devDependencies": {
+    "@vue/runtime-core": "3.2.31"
+  }
+}
