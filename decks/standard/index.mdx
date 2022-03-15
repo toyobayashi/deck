@@ -15,6 +15,26 @@ JavaScript Standard Style 作者 Feross 文章《Never Use Semicolons》
 
 ---
 
+# 提前声明
+
+本期视频介绍的是
+
+Feross 大佬文章的观点
+
+以及 Standard 风格的最小 ESLint 配置
+
+---
+
+# 提前声明
+
+UP 认为写不写分号取决于个人喜好和团队规范
+
+自己的项目随意，公司项目或多人合作的项目按规范写即可
+
+没有说哪边就一定更好，请不要在评论区互相争论
+
+---
+
 <CodeSurfer>
 
 ```js subtitle="来看个例子"
@@ -27,12 +47,12 @@ function foo () {
 }
 ```
 
-```diff 6[6] subtitle="虽然你记得在最后添加分号"
+```diff 6[6] subtitle="虽然在函数最后添加了分号"
 ```
 
-```js 2[9:43] subtitle="虽然你记得在最后添加分号，但这无关紧要。自动分号补全 (ASI) 会把你的代码改成这样"
+```js 2[9:43] subtitle="但是自动分号补全 (ASI) 会把代码改成这样"
 function foo () {
-  return; // <-- ASI 在这里插入了分号。现在你的代码出现了 bug
+  return; // <-- ASI 在这里插入了分号。现在代码出现了 bug
     {
       bar: 1,
       baz: 2
@@ -40,7 +60,7 @@ function foo () {
 }
 ```
 
-```js 2:3,6 subtitle="总是使用分号并不简单。实际上在许多极端情况下，你仍然不应该使用分号"
+```js 2:3,6 subtitle="「总是使用分号」并不简单。实际上在许多极端情况下仍然不应该使用分号"
 function foo () {
   return 42; // 正确
 };           // <-- 要避免！
@@ -67,7 +87,7 @@ class Foo {
 };               // <-- 要避免！
 ```
 
-```js subtitle="如果你「永远不使用分号」，那么只需要记住一条规则"
+```js subtitle="如果「永远不使用分号」，那么只需要记住一条规则"
 // 请勿以 [、( 或 ` 开始新的一行
 
 // [ 与上一行形成数组取下标或访问对象属性
@@ -77,7 +97,7 @@ class Foo {
 [1, 2, 3].forEach(bar)
 ```
 
-```js subtitle="在这些情况下，你只需在前面加上 ;"
+```js subtitle="在这些情况下只需在前面加上 ;"
 ;[1, 2, 3].forEach(bar)
 ```
 
@@ -190,7 +210,7 @@ module.exports = {
 
 </Step>
 
-<Step subtitle="Vanilla TypeScript">
+<Step subtitle="Vanilla TypeScript: 当前最新 (21.0.1) 版本的 eslint-config-standard-with-typescript 写死了依赖 4 版本的 parser 导致 typescript 只能使用 4.5 以下的版本">
 
 ```json
 {
@@ -198,7 +218,7 @@ module.exports = {
     "lint": "eslint src"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
     "eslint": "^7.32.0",
     "eslint-config-standard-with-typescript": "^21.0.1",
     "eslint-plugin-import": "^2.25.4",
@@ -232,7 +252,7 @@ module.exports = {
     "lint": "eslint src"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
     "eslint": "^7.32.0",
     "eslint-config-standard-with-typescript": "^21.0.1",
     "eslint-plugin-import": "^2.25.4",
@@ -270,7 +290,7 @@ module.exports = {
     "lint": "eslint --ext .js,.jsx,.ts,.tsx,.vue src"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
     "eslint": "^7.32.0",
     "eslint-config-standard-with-typescript": "^21.0.1",
     "eslint-plugin-import": "^2.25.4",
