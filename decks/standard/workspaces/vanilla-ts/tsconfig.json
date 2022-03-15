@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "target": "ES5"
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

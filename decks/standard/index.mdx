@@ -1,0 +1,312 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-tsx"
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# 在 JavaScript 中永远不要使用分号
+
+<Logo />
+
+JavaScript Standard Style 作者 Feross 文章《Never Use Semicolons》
+
+原文：[https://feross.org/never-use-semicolons/](https://feross.org/never-use-semicolons/)
+
+---
+
+<CodeSurfer>
+
+```js subtitle="来看个例子"
+function foo () {
+  return
+    {
+      bar: 1,
+      baz: 2
+    };
+}
+```
+
+```diff 6[6] subtitle="虽然你记得在最后添加分号"
+```
+
+```js 2[9:43] subtitle="虽然你记得在最后添加分号，但这无关紧要。自动分号补全 (ASI) 会把你的代码改成这样"
+function foo () {
+  return; // <-- ASI 在这里插入了分号。现在你的代码出现了 bug
+    {
+      bar: 1,
+      baz: 2
+    };
+}
+```
+
+```js 2:3,6 subtitle="总是使用分号并不简单。实际上在许多极端情况下，你仍然不应该使用分号"
+function foo () {
+  return 42; // 正确
+};           // <-- 要避免！
+
+var foo = function () {
+}; // 正确
+```
+
+```js subtitle="「总是使用分号」比「永远不使用分号」要记住更多的「边缘情况」"
+function foo () {
+  return 42; // 正确
+};           // <-- 要避免！
+
+var foo = function () {
+}; // 正确
+
+class Foo {
+  constructor () {
+    if (baz) {
+      return 42; // 正确
+    };           // <-- 要避免！
+    return 12;   // 正确
+  };             // <-- 要避免！
+};               // <-- 要避免！
+```
+
+```js subtitle="如果你「永远不使用分号」，那么只需要记住一条规则"
+// 请勿以 [、( 或 ` 开始新的一行
+
+// [ 与上一行形成数组取下标或访问对象属性
+// ( 与上一行形成函数调用
+// ` 与上一行形成标签模板
+
+[1, 2, 3].forEach(bar)
+```
+
+```js subtitle="在这些情况下，你只需在前面加上 ;"
+;[1, 2, 3].forEach(bar)
+```
+
+```js subtitle="但这样写更简单明了（up：emm 怎么看也是前面加个分号更简洁，分开写可读性强一点）"
+// ;[1, 2, 3].forEach(bar)
+
+const nums = [1, 2, 3]
+nums.forEach(bar)
+```
+
+</CodeSurfer>
+
+---
+
+# Standard 风格 ESLint 最小配置
+
+VSCode 先安装扩展 【ESLint】
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="Vanilla JavaScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "eslint": "^8.11.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.0.0"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+module.exports = {
+  extends: 'standard'
+}
+```
+
+</Step>
+
+<Step subtitle="React JavaScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint --ext .js,.jsx src"
+  },
+  "devDependencies": {
+    "eslint": "^8.11.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.0.0"
+    , "eslint-plugin-react": "^7.29.4"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+module.exports = {
+  extends: [
+    'plugin:react/recommended',
+    'standard'
+  ]
+}
+```
+
+</Step>
+
+<Step subtitle="Vue JavaScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint --ext .js,.vue src"
+  },
+  "devDependencies": {
+    "eslint": "^8.11.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.0.0"
+    , "eslint-plugin-vue": "^8.5.0"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+module.exports = {
+  extends: [
+    'plugin:vue/vue3-recommended',
+    // 'plugin:vue/recommended', // Vue 2
+    'standard'
+  ]
+}
+```
+
+</Step>
+
+<Step subtitle="Vanilla TypeScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "eslint": "^7.32.0",
+    "eslint-config-standard-with-typescript": "^21.0.1",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.2.0",
+    "typescript": "~4.4.4"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+const path = require('path')
+
+module.exports = {
+  extends: 'standard-with-typescript',
+  parserOptions: {
+    project: path.join(__dirname, './tsconfig.json')
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="React TypeScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "eslint": "^7.32.0",
+    "eslint-config-standard-with-typescript": "^21.0.1",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.2.0",
+    "eslint-plugin-react": "^7.29.4",
+    "typescript": "~4.4.4"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+const path = require('path')
+
+module.exports = {
+  extends: [
+    'plugin:react/recommended',
+    'standard-with-typescript'
+  ],
+  parserOptions: {
+    project: path.join(__dirname, './tsconfig.json')
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="Vue TypeScript">
+
+```json
+{
+  "scripts": {
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx,.vue src"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.15.0",
+    "eslint": "^7.32.0",
+    "eslint-config-standard-with-typescript": "^21.0.1",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.2.0",
+    "eslint-plugin-vue": "^8.5.0",
+    "typescript": "~4.4.4"
+  }
+}
+```
+
+```js
+// .eslintrc.js
+
+const path = require('path')
+
+module.exports = {
+  extends: [
+    'plugin:vue/vue3-recommended',
+    // 'plugin:vue/recommended', // Vue 2
+    'standard-with-typescript'
+  ],
+  parserOptions: {
+    project: path.join(__dirname, './tsconfig.json')
+  }
+}
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 原文
+
+如果对你有帮助可以一键三连
+
+原文：[https://feross.org/never-use-semicolons/](https://feross.org/never-use-semicolons/)
