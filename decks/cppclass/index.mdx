@@ -1,0 +1,898 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-cpp"
+import Logo from './Logo.jsx'
+import SpecialMemberTable from './SpecialMemberTable.jsx'
+import sp from './assets/SpecialMembers.png'
+
+export const theme = customTheme
+
+# C++ 类的特殊成员
+
+<Logo />
+
+写 C++ 类要注意哪些坑？如何写好一个类？
+
+---
+
+# 本期内容
+
+- 特殊成员有哪些
+- 怎么写算是用户声明
+- 未声明和删除有什么区别
+- 什么情况下编译器会隐式生成特殊成员
+- 移动到底怎么移
+- 如何写好一个类
+
+---
+
+# 特殊成员有哪些
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="C++ 11 开始，类的特殊成员有 6 个">
+
+```cpp 
+struct X {
+
+};
+```
+
+```cpp
+#include "x.h"
+
+int main() {
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="默认构造函数">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+};
+```
+
+```cpp
+#include "x.h"
+
+int main() {
+  X x;
+  X* p = new X();
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="析构函数">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+  ~X();                    // 析构函数
+};
+```
+
+```cpp
+#include "x.h"
+
+int main() {
+  {
+    X x;
+  } // <-- 离开作用域，调用 X::~X()
+  X* p = new X();
+  delete p;  // <-- 释放堆内存，调用 X::~X()
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="拷贝构造函数">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+  ~X();                    // 析构函数
+  X(const X&);             // 拷贝构造函数
+};
+```
+
+```cpp 3:4,8:15
+#include "x.h"
+
+void f(X x) {}
+X g() { X x; return x; }
+
+int main() {
+  X a;
+  X b = a;
+  X c(a);
+  X* p = new X(a);
+  f(a);
+
+  // 如果 X 没有移动构造函数
+  // 就会调用拷贝构造函数
+  X x = g();
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="拷贝赋值运算符">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+  ~X();                    // 析构函数
+  X(const X&);             // 拷贝构造函数
+  X& operator=(const X&);  // 拷贝赋值运算符
+};
+```
+
+```cpp 5
+#include "x.h"
+
+int main() {
+  X a, b;
+  a = b;
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="移动构造函数">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+  ~X();                    // 析构函数
+  X(const X&);             // 拷贝构造函数
+  X& operator=(const X&);  // 拷贝赋值运算符
+  X(X&&);                  // 移动构造函数
+};
+```
+
+```cpp 3:4,8:14
+#include "x.h"
+
+void f(X x) {}
+X g() { X x; return x; }
+
+int main() {
+  X a;
+  X b = static_cast<X&&>(a);
+  X c(static_cast<X&&>(a));
+  X* p = new X(static_cast<X&&>(a));
+  f(static_cast<X&&>(a));
+
+  // X 有移动构造函数
+  X x = g();
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="移动赋值运算符">
+
+```cpp 
+struct X {
+  X();                     // 默认构造函数
+  ~X();                    // 析构函数
+  X(const X&);             // 拷贝构造函数
+  X& operator=(const X&);  // 拷贝赋值运算符
+  X(X&&);                  // 移动构造函数
+  X& operator=(X&&);       // 移动赋值运算符
+};
+```
+
+```cpp 5
+#include "x.h"
+
+int main() {
+  X a, b;
+  a = static_cast<X&&>(b);
+  return 0;
+}
+```
+
+</Step>
+
+<Step subtitle="特殊成员的特殊之处在于：特定情况下编译器会自动生成这些特殊成员">
+
+```diff
+```
+
+```cpp
+/*
+
+特殊成员的特殊之处在于：特定情况下编译器会自动生成这些特殊成员
+
+*/
+```
+
+</Step>
+
+<Step subtitle="这些特殊成员可以被：未声明 / 编译器隐式声明 / 用户显式声明">
+
+```diff
+```
+
+```cpp
+/*
+
+这些特殊成员可以被：
+
+未声明（该成员函数不存在！）
+
+编译器隐式声明
+
+用户显式声明
+
+*/
+```
+
+</Step>
+
+<Step subtitle="编译器隐式声明包括：默认的 / 删除的">
+
+```diff
+```
+
+```cpp
+/*
+
+这些特殊成员可以被：
+
+未声明（该成员函数不存在！）
+
+编译器隐式声明
+    defaulted / deleted
+
+用户显式声明
+
+*/
+```
+
+</Step>
+
+<Step subtitle="用户显式声明包括：默认的 / 删除的 / 用户定义的">
+
+```diff
+```
+
+```cpp
+/*
+
+这些特殊成员可以被：
+
+未声明（该成员函数不存在！）
+
+编译器隐式声明
+    defaulted / deleted
+
+用户显式声明
+    defaulted / deleted / user-defined
+*/
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 怎么写算是用户声明？
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="1. 声明且定义"
+struct X {
+  X() { /* ... */ }  // 声明并 inline 定义
+};
+```
+
+```cpp subtitle="2. 只声明，不定义，或在类外定义"
+struct X {
+  X() { /* ... */ }  // 声明并 inline 定义
+  X();  // 只声明，不定义
+};
+```
+
+```cpp subtitle="3. 让编译器生成默认定义"
+struct X {
+  X() { /* ... */ }  // 声明并 inline 定义
+  X();  // 只声明，不定义
+  X() = default;  // 让编译器生成默认定义
+};
+```
+
+```cpp subtitle="4. 阻止编译器生成（该成员函数存在，但不可用）"
+struct X {
+  X() { /* ... */ }  // 声明并 inline 定义
+  X();  // 只声明，不定义
+  X() = default;  // 让编译器生成默认定义
+  X() = delete;  // 阻止编译器生成（该成员函数存在，但不可用）
+};
+```
+
+```diff subtitle="以上是默认构造函数的用户声明例子，6 个特殊成员都可以这样写"
+```
+
+</CodeSurfer>
+
+---
+
+# 未声明和删除有什么区别
+
+---
+
+<CodeSurfer>
+
+```cpp
+struct X {
+
+};
+
+int main() {
+  return 0;
+}
+```
+
+```cpp
+struct X {
+  template <typename... Args>
+  X(Args&&... args);
+
+  // 当用户声明了任意构造函数
+  // 默认构造函数是 未声明 的
+  // 但 X 可以通过变参构造函数
+  // 被无参构造
+};
+
+int main() {
+  // 调用 X::X<>()
+  X x;
+  return 0;
+}
+```
+
+```cpp
+struct X {
+  template <typename... Args>
+  X(Args&&... args);
+
+  X() = default;
+
+  // 默认构造函数可用
+};
+
+int main() {
+  // 重载决议选择 X::X()
+  X x;
+  return 0;
+}
+```
+
+```cpp
+struct X {
+  template <typename... Args>
+  X(Args&&... args);
+
+  X() = delete;
+
+  // 默认构造函数存在，但不可用
+};
+
+int main() {
+  // 重载决议选择 X::X()
+  // 编译不通过
+  X x;
+  return 0;
+}
+```
+
+```diff subtitle="未声明的特殊成员 不参与 重载决议，删除的特殊成员 会参与 重载决议"
+```
+
+</CodeSurfer>
+
+---
+
+# 什么情况下编译器会隐式生成特殊成员
+
+---
+
+<CodeSurferColumns sizes={[1,2]}>
+
+<Step>
+
+```cpp
+struct X {
+  // 不写任何特殊成员
+  // 6 个特殊成员都由编译器提供
+
+  // X() = default;
+  // ~X() = default;
+  // X(const X&) = default;
+  // X& operator=(const X&) = default;
+  // X(X&&) = default;
+  // X& operator=(X&&) = default;
+};
+```
+
+<SpecialMemberTable step={1} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X(int);
+
+  // 只要声明了任意构造函数
+  // 默认构造函数就是未声明的
+  // 其它 5 个特殊成员由编译器提供
+
+  // ~X() = default;
+  // X(const X&) = default;
+  // X& operator=(const X&) = default;
+  // X(X&&) = default;
+  // X& operator=(X&&) = default;
+};
+```
+
+<SpecialMemberTable step={2} />
+
+</Step>
+
+<Step>
+
+```cpp 2:4
+struct X {
+  X();
+
+  // 其它 5 个特殊成员由编译器提供
+
+  // ~X() = default;
+  // X(const X&) = default;
+  // X& operator=(const X&) = default;
+  // X(X&&) = default;
+  // X& operator=(X&&) = default;
+};
+```
+
+<SpecialMemberTable step={3} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  ~X();
+
+  // 移动构造函数和移动赋值运算符未声明
+  // 拷贝构造函数和拷贝赋值运算符
+  // 由编译器提供，但是危险的
+
+  // X() = default;
+  // X(const X&) = default;
+  // X& operator=(const X&) = default;
+};
+```
+
+<SpecialMemberTable step={4} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X() noexcept: x_(new int(0)) {}
+
+  ~X() { delete x_; }
+
+  // 拷贝构造函数和拷贝赋值运算符是危险的
+
+  // X(const X&) = default;
+  // X& operator=(const X&) = default;
+ private:
+  int* x_;
+};
+
+int main() {
+  {
+    X a;
+
+    // 危险！
+    // a.x_ 与 b.x_ 指向同一块内存
+    X b = a;
+  } // <-- 同一块堆内存被两次释放
+  // 程序崩溃
+  return 0;
+}
+```
+
+<SpecialMemberTable step={4} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X() noexcept: x_(new int(0)) {}
+
+  ~X() { delete x_; }
+
+  // 写了析构函数别忘记把拷贝也写了
+
+  X(const X& other) noexcept:
+    x_(new int(*other.x_)) {}
+
+  X& operator=(const X& other) noexcept {
+    if (this != &other) {
+      delete x_;
+      if (other.x_) {
+        x_ = new int(*other.x_);
+      } else {
+        x_ = nullptr;
+      }
+    }
+    return *this;
+  }
+ private:
+  int* x_;
+};
+
+int main() {
+  {
+    X a;
+    X b = a;
+  } // ok
+  return 0;
+}
+```
+
+<SpecialMemberTable step={4} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X() noexcept: x_(new int(0)) {}
+
+  ~X() { delete x_; }
+
+  // 或者删除拷贝，只写移动
+  X(const X&) = delete;
+  X& operator=(const X&) = delete;
+
+  X(X&& other) noexcept:
+    x_(other.x_) { other.x_ = nullptr; }
+
+  X& operator=(X&& other) noexcept {
+    if (this != &other) {
+      delete x_;
+      x_ = other.x_;
+      other.x_ = nullptr;
+    }
+    return *this;
+  }
+ private:
+  int* x_;
+};
+
+int main() {
+  {
+    X a;
+    X b = std::move(a);
+  } // ok
+  return 0;
+}
+```
+
+<SpecialMemberTable step={4} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X(const X&);
+
+  // 只要声明了任意构造函数
+  // 默认构造函数就是未声明的
+  // 移动构造函数和移动赋值运算符未声明
+  // 拷贝赋值运算符是危险的
+
+  // ~X() = default;
+  // X& operator=(const X&) = default;
+};
+```
+
+<SpecialMemberTable step={5} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X& operator=(const X&);
+
+  // 移动构造函数和移动赋值运算符未声明
+  // 拷贝构造是危险的
+
+  // X() = default;
+  // ~X() = default;
+  // X(const X&) = default;
+};
+```
+
+<SpecialMemberTable step={6} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X(X&&);
+
+  // 只要声明了任意构造函数
+  // 默认构造函数就是未声明的
+  // 拷贝构造函数和拷贝赋值运算符删除
+  // 移动赋值运算符未声明
+
+  // ~X() = default;
+  // X(const X&) = delete;
+  // X& operator=(const X&) = delete;
+};
+```
+
+<SpecialMemberTable step={7} />
+
+</Step>
+
+<Step>
+
+```cpp
+struct X {
+  X& operator=(X&&);
+
+  // 拷贝构造函数和拷贝赋值运算符删除
+  // 移动构造函数未声明
+
+  // X() = default;
+  // ~X() = default;
+  // X(const X&) = delete;
+  // X& operator=(const X&) = delete;
+};
+```
+
+<SpecialMemberTable step={8} />
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<img src={sp} />
+
+---
+
+# 移动到底怎么移
+
+---
+
+<CodeSurfer>
+
+```cpp title="编译器默认生成的移动构造函数做了什么"
+class Derived : public Base {
+ private:
+  Member m_;
+ public:
+  Derived(Derived&& d):
+    Base(static_cast<Base&&>(d)),
+    m_(static_cast<Member&&>(d.m_)) {}
+};
+```
+
+```cpp title="用户定义的移动构造函数一般要做什么"
+class Derived : public Base {
+ private:
+  Member m_;
+ public:
+  Derived(Derived&& d):
+    Base(std::move(d)),
+    m_(std::move(d.m_))
+  {
+    d.SetToResourcelessState();
+  }
+};
+```
+
+```cpp title="编译器默认生成的移动赋值运算符做了什么"
+class Derived : public Base {
+ private:
+  Member m_;
+ public:
+  Derived& operator=(Derived&& d) {
+    Base::operator=(static_cast<Base&&>(d));
+    m_ = static_cast<Member&&>(d.m_);
+    return *this;
+  }
+};
+```
+
+```cpp title="用户定义的移动赋值运算符一般要做什么"
+class Derived : public Base {
+ private:
+  Member m_;
+ public:
+  Derived& operator=(Derived&& d) {
+    Base::operator=(std::move(d));
+    m_ = std::move(d.m_);
+    d.SetToResourcelessState();
+    return *this;
+  }
+};
+```
+
+</CodeSurfer>
+
+---
+
+# 如何写好一个类
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="1. 不写任何特殊成员，让编译器隐式生成"
+class X {
+ private:
+  std::vector<int> v_;
+ public:
+  // 请双手离开键盘
+};
+```
+
+```cpp subtitle="2. 写了就 6 个都全部写全"
+class X {
+ private:
+  char* s_;
+ public:
+  X();
+  ~X();
+  X(const X&);
+  X& operator=(const X&);
+  X(X&&);
+  X& operator=(X&&);
+};
+```
+
+```cpp subtitle="3. 只可移动不可拷贝"
+class X {
+ private:
+  FILE* f_;
+ public:
+  X();
+  ~X();
+  // X(const X&) = delete;
+  // X& operator=(const X&) = delete;
+  X(X&&);
+  X& operator=(X&&);
+};
+```
+
+```cpp subtitle="4. 不可拷贝不可移动"
+class X {
+ private:
+  std::mutex m_;
+ public:
+  X(const X&) = delete;
+  X& operator=(const X&) = delete;
+};
+```
+
+```cpp subtitle="5. 只可拷贝不可移动，不要删除移动成员"
+class X {
+ public:
+  X(const X&);
+  X& operator=(const X&);
+
+  // 错误的做法
+  X(X&&) = delete;
+  X& operator=(X&&) = delete;
+};
+
+X GetX();
+
+int main() {
+  // 移动构造函数已声明（存在）
+  // 不会调用拷贝构造函数
+  // 编译不通过
+  X x = GetX();
+
+  return 0;
+}
+```
+
+```cpp 3:4,10:12 subtitle="5. 只可拷贝不可移动，正确的做法"
+class X {
+ public:
+  X(const X&);
+  X& operator=(const X&);
+};
+
+X GetX();
+
+int main() {
+  // 移动构造函数未声明
+  // 调用拷贝构造函数
+  X x = GetX();
+
+  return 0;
+}
+```
+
+```cpp subtitle="6. 可继承的基类必须有 虚析构函数"
+class Base {
+ public:
+  virtual ~Base();
+  Base(const Base&);
+  Base& operator=(const Base&);
+  Base(Base&&);
+  Base& operator=(Base&&);
+};
+
+class Derived : public Base {};
+
+int main() {
+  // 基类指针指向派生类
+  Base* p = new Derived();
+  // 基类析构函数是 virtual 的
+  // 派生类的析构函数也会被调用
+  // 防止内存泄漏
+  delete p;
+  // 调用 Derived::~Derived()
+  // 调用 Base::~Base()
+  {
+    // 智能指针也一样
+    std::unique_ptr<Base> sp =
+      std::make_unique<Derived>();
+  }
+
+  return 0;
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 如果对你有帮助可以一键三连
+
+Howard Hinnant: Everything You Ever Wanted to Know About Move Semantics
+
+[https://www.youtube.com/watch?v=vLinb2fgkHk](https://www.youtube.com/watch?v=vLinb2fgkHk)
