@@ -21,6 +21,7 @@ var BaseError = /** @class */ (function (_super) {
         var _this = _super.call(this, message) || this;
         var Ctor = _newTarget;
         if (!(_this instanceof Ctor)) {
+            // TypeScript compiler ES5 target
             Object.setPrototypeOf(_this, Ctor.prototype);
             if (typeof Error.captureStackTrace === 'function') {
                 Error.captureStackTrace(_this, Ctor);

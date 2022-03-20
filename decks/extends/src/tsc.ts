@@ -1,8 +1,5 @@
 declare interface ErrorConstructor {
-  captureStackTrace<
-    E extends Error,
-    C extends new (message?: string) => Error
-  > (error: E, constructorOpt?: C): void
+  captureStackTrace (error: object, constructorOpt?: Function): void
 }
 
 class BaseError extends Error {
@@ -11,6 +8,7 @@ class BaseError extends Error {
     const Ctor = new.target
 
     if (!(this instanceof Ctor)) {
+      // TypeScript compiler ES5 target
       Object.setPrototypeOf(this, Ctor.prototype)
 
       if (typeof Error.captureStackTrace === 'function') {
