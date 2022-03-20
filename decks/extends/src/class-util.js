@@ -1,4 +1,5 @@
 var canUseReflectConstruct = typeof Proxy === 'function' && typeof Reflect !== 'undefined' && typeof Reflect.construct === 'function'
+// var canUseReflectConstruct = false
 
 function createSuper (SubClass, SuperClass) {
   return canUseReflectConstruct
@@ -85,6 +86,32 @@ function defineStaticMethod (Class, name, fn) {
       var args = Array.prototype.slice.call(arguments)
       return fn.apply(this, args)
     }, 'name', {
+      configurable: true,
+      writable: false,
+      enumerable: false,
+      value: name
+    })
+  })
+}
+
+function defineGetter (Class, name, fn) {
+  Object.defineProperty(Class.prototype, name, {
+    configurable: true,
+    enumerable: false,
+    get: Object.defineProperty(fn, 'name', {
+      configurable: true,
+      writable: false,
+      enumerable: false,
+      value: name
+    })
+  })
+}
+
+function defineStaticGetter (Class, name, fn) {
+  Object.defineProperty(Class, name, {
+    configurable: true,
+    enumerable: false,
+    get: Object.defineProperty(fn, 'name', {
       configurable: true,
       writable: false,
       enumerable: false,
