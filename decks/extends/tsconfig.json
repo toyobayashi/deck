@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES5",
+    "module": "none",
+    "types": [],
+    "lib": [
+      "ES2015"
+    ]
+  },
+  "include": [
+    "./src/tsc.ts"
+  ]
+}

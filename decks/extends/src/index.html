@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error</title>
+</head>
+<body>
+  <script src="./class-util.js"></script>
+  <!-- <script src="./es5.js"></script> -->
+  <!-- <script src="./es6.js"></script> -->
+  <script src="./tsc.js"></script>
+  <script>
+    (function () {
+      var e = new BaseError('error message')
+      console.log('e instanceof BaseError === ' + (e instanceof BaseError))
+      console.log('e instanceof Error === ' + (e instanceof Error))
+      console.log(e.what())
+      console.log(e.stack)
+    })()
+  </script>
+</body>
+</html>
