@@ -88,11 +88,6 @@ var App = /*#__PURE__*/ (function (Component) {
 
   inherit(App, Component)
 
-  defineStaticMethod(App, 'getDerivedStateFromProps',
-    function getDerivedStateFromProps (props, state) {
-      return null
-    })
-
   defineStaticField(App, 'defaultProps', {})
   defineStaticGetter(App, 'displayName', function () {
     return 'App'

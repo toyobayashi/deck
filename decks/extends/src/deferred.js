@@ -23,8 +23,22 @@ var Deferred = /*#__PURE__*/ (function (SuperClass) {
         _reject(reason)
       }
       function resolve (value) {
-        if (value && typeof value.then === 'function') {
-          Promise.resolve(value).then(fulfill, reject)
+        if (
+          (typeof value === 'object' && value !== null) ||
+          typeof value === 'function'
+        ) {
+          let then
+          try {
+            then = value.then
+          } catch (err) {
+            reject(err)
+            return
+          }
+          if (typeof then === 'function') {
+            Promise.resolve(value).then(fulfill, reject)
+          } else {
+            fulfill(value)
+          }
         } else {
           fulfill(value)
         }

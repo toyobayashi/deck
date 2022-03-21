@@ -43,14 +43,8 @@ class Component {
 }
 
 class App extends Component {
-  static getDerivedStateFromProps (props, state) {
-    return null
-  }
-
-  static defaultProps = {}
-
-  static get displayName () {
-    return 'App'
+  get count () {
+    return this.state.count
   }
 
   constructor (props) {
@@ -58,10 +52,6 @@ class App extends Component {
     console.log(new.target)
     this.state = { count: 0 }
     this.onClick = this.add.bind(this)
-  }
-
-  get count () {
-    return this.state.count
   }
 
   add () {
@@ -79,5 +69,11 @@ class App extends Component {
         `count: ${this.count}`
       )
     )
+  }
+
+  static defaultProps = {}
+
+  static get displayName () {
+    return 'App'
   }
 }
