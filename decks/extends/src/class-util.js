@@ -1,20 +1,17 @@
 var canUseReflectConstruct = typeof Proxy === 'function' && typeof Reflect !== 'undefined' && typeof Reflect.construct === 'function'
 // var canUseReflectConstruct = false
 
-function createSuper (SubClass, SuperClass) {
+function createSuper (Derived, Base) {
   return canUseReflectConstruct
     ? function () {
-        var args = Array.prototype.slice.call(arguments)
-        var newTarget = SubClass // Object.getPrototypeOf(this).constructor
-        return Reflect.construct(SuperClass, args, newTarget)
+        return Reflect.construct(Base, arguments, Derived)
       }
     : function () {
-        var args = Array.prototype.slice.call(arguments)
         var bindArgs = [null]
-        Array.prototype.push.apply(bindArgs, args)
-        var boundSuperClass = Function.prototype.bind.apply(SuperClass, bindArgs)
-        var _this = new boundSuperClass()
-        Object.setPrototypeOf(_this, SubClass.prototype)
+        Array.prototype.push.apply(bindArgs, arguments)
+        var BoundBase = Function.prototype.bind.apply(Base, bindArgs)
+        var _this = new BoundBase()
+        Object.setPrototypeOf(_this, Derived.prototype)
         return _this
       }
 }
@@ -33,10 +30,10 @@ function initializePrototype (Class) {
   })
 }
 
-function inherit (SubClass, SuperClass) {
-  initializePrototype(SubClass)
-  Object.setPrototypeOf(SubClass, SuperClass)
-  Object.setPrototypeOf(SubClass.prototype, SuperClass.prototype)
+function inherit (Derived, Base) {
+  initializePrototype(Derived)
+  Object.setPrototypeOf(Derived, Base)
+  Object.setPrototypeOf(Derived.prototype, Base.prototype)
 }
 
 function defineMethods (Class, options) {
@@ -67,8 +64,7 @@ function defineMethod (Class, name, fn) {
       if (this && !(this instanceof Class)) {
         throw new TypeError(`${name} is not a constructor`)
       }
-      var args = Array.prototype.slice.call(arguments)
-      return fn.apply(this, args)
+      return fn.apply(this, arguments)
     }, 'name', {
       configurable: true,
       writable: false,
@@ -88,8 +84,7 @@ function defineStaticMethod (Class, name, fn) {
       if (this && !(this instanceof Class.constructor)) {
         throw new TypeError(`${name} is not a constructor`)
       }
-      var args = Array.prototype.slice.call(arguments)
-      return fn.apply(this, args)
+      return fn.apply(this, arguments)
     }, 'name', {
       configurable: true,
       writable: false,
