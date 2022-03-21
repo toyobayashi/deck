@@ -57,6 +57,7 @@ class App extends Component {
     super(props)
     console.log(new.target)
     this.state = { count: 0 }
+    this.onClick = this.add.bind(this)
   }
 
   get count () {
@@ -74,7 +75,7 @@ class App extends Component {
       'div', {},
       App.createElement(
         'p',
-        { onClick: this.add.bind(this) },
+        { onClick: this.onClick },
         `count: ${this.count}`
       )
     )

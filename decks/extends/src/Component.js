@@ -81,6 +81,7 @@ var App = /*#__PURE__*/ (function (Component) {
     var _this = _super(props)
     console.log(_newTarget)
     _this.state = { count: 0 }
+    _this.onClick = _this.add.bind(_this)
 
     return _this
   }
@@ -112,7 +113,7 @@ var App = /*#__PURE__*/ (function (Component) {
       'div', {},
       App.createElement(
         'p',
-        { onClick: this.add.bind(this) },
+        { onClick: this.onClick },
         `count: ${this.count}`
       )
     )
