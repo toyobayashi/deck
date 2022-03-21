@@ -1,0 +1,665 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# ES6 class 与 extends 的本质
+
+<Logo />
+
+脱掉 class 的糖衣
+
+---
+
+# 本期内容
+
+- class 的本质
+- extends 的本质
+- 继承 Error
+- 实现继承 Promise 的 Deferred
+- tsc 编译到 ES5 继承内置类存在的坑
+
+---
+
+# class 的本质
+
+介绍等价的 ES5 写法
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="左边是 class 写法，右边是等价 ES5 写法">
+
+```js
+// 左边是 class 写法
+```
+
+```js
+// 右边是等价 ES5 写法
+```
+
+</Step>
+
+<Step subtitle="没有变量提升，默认严格模式，默认有空构造函数，构造函数必须用 new 不可直接调用">
+
+```js file=./class/1-1.js
+```
+
+```js file=./class/1-2.js
+```
+
+</Step>
+
+<Step subtitle="prototype 不可配置、不可枚举、不可覆写，prototype.constructor 是不可枚举的构造函数">
+
+```diff
+```
+
+```js 12,17:32 file=./class/2-2.js
+```
+
+</Step>
+
+<Step subtitle="实现不是重点，并不是真正的 React 实现，不必在意">
+
+```js file=./class/3-1.js
+```
+
+```js file=./class/3-2.js
+```
+
+</Step>
+
+<Step subtitle="实例方法在构造函数的 prototype 上，不可枚举不可 new">
+
+```js file=./class/4-1.js
+```
+
+```js file=./class/4-2.js
+```
+
+</Step>
+
+<Step subtitle="静态方法在构造函数上，不可枚举不可 new">
+
+```js file=./class/5-1.js
+```
+
+```js file=./class/5-2.js
+```
+
+</Step>
+
+<Step subtitle="补充静态方法实现，不必在意">
+
+```js 31:41 file=./class/5-1.js
+```
+
+```js file=./class/6-2.js
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# extends 的本质
+
+介绍等价的 ES5 写法
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="左边是 class 写法，右边是等价 ES5 写法">
+
+```js
+class Component { /* ... */ }
+```
+
+```js
+var Component = /*#__PURE__*/ (function () {
+  /* ... */
+})()
+```
+
+</Step>
+
+<Step subtitle="继承基类，this 在 super 调用后才可以使用">
+
+```js file=./class/7-1.js
+```
+
+```js 8,16,18,21 file=./class/7-2.js
+```
+
+</Step>
+
+<Step subtitle="添加构造函数，new.target 是访问 this.__proto__ 的 constructor">
+
+```js file=./class/8-1.js
+```
+
+```js file=./class/8-2.js
+```
+
+</Step>
+
+<Step subtitle="super 调用时，先构造出基类对象，再把对象的 __proto__ 改成派生类的 prototype">
+
+```diff 5
+```
+
+```js 5:25,30 file=./class/9-2.js
+```
+
+</Step>
+
+<Step subtitle="通过修改构造函数 __proto__ 继承静态方法，修改构造函数 prototype 的 __proto__ 继承实例方法">
+
+```diff 3[7:27]
+```
+
+```js 48,53:58 file=./class/10-2.js
+```
+
+</Step>
+
+<Step subtitle="实例 Getter 在构造函数的 prototype 上，不可枚举">
+
+```js file=./class/11-1.js
+```
+
+```js file=./class/11-2.js
+```
+
+</Step>
+
+<Step subtitle="静态 Getter 在构造函数上，不可枚举">
+
+```js file=./class/12-1.js
+```
+
+```js file=./class/12-2.js
+```
+
+</Step>
+
+<Step subtitle="静态属性在构造函数上，可枚举">
+
+```js file=./class/13-1.js
+```
+
+```js file=./class/13-2.js
+```
+
+</Step>
+
+<Step subtitle="前面演示过 defineMethod，在构造函数的 prototype 上，不可枚举">
+
+```js file=./class/14-1.js
+```
+
+```js file=./class/14-2.js
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 继承 Error
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="你以为这样就可以了吗">
+
+```js
+class BaseError extends Error {
+  /** @virtual */
+  what () {
+    return this.message
+  }
+}
+```
+
+```js file=./class/e-1.js
+```
+
+</Step>
+
+<Step subtitle="还要修复 stack 上的 name 显示">
+
+```js
+class BaseError extends Error {
+  /** @virtual */
+  what () {
+    return this.message
+  }
+}
+
+Object.defineProperty(BaseError.prototype, 'name', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: 'BaseError'
+})
+```
+
+```js file=./class/e-2.js
+```
+
+</Step>
+
+<Step subtitle="V8 还可以使用 captureStackTrace 创建无多余调用栈的 stack">
+
+```diff
+```
+
+```js file=./class/e-3.js
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurfer>
+
+```ts title="实现继承 Promise 的 Deferred"
+declare class Deferred<T> extends Promise<T> {
+  readonly state: 'pending' | 'fulfilled' | 'rejected'
+  resolve (value?: T | PromiseLike<T>): void
+  reject (reason?: any): void
+}
+
+const d = new Deferred<number>()
+d.then(console.log)
+
+setTimeout(() => {
+  d.resolve(1)
+}, 1000)
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="构造函数">
+
+```js file=./class/15-1.js
+```
+
+```js file=./class/15-2.js
+```
+
+</Step>
+
+<Step subtitle="WeakMap 实现私有实例属性">
+
+```js file=./class/16-1.js
+```
+
+```js file=./class/16-2.js
+```
+
+</Step>
+
+<Step subtitle="确保最后得到结果再修改 state，Thenable 对象用 Promise.resolve 包一层">
+
+```js file=./class/17-1.js
+```
+
+```js file=./class/17-2.js
+```
+
+</Step>
+
+<Step subtitle="定义 Symbol.species 确保 then catch 等基类方法返回值构造 Promise 而不是 Deferred，因为 Deferred 构造函数不接收 executor">
+
+```js file=./class/18-1.js
+```
+
+```js file=./class/18-2.js
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# tsc 编译到 ES5 继承内置类存在的坑
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="左边是刚才的 Error 的例子，右边是 tsc v4.6.2 的输出">
+
+```ts
+class BaseError extends Error {
+  /** @virtual */
+  what (): string {
+    return this.message
+  }
+}
+
+Object.defineProperty(BaseError.prototype, 'name', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: 'BaseError'
+})
+
+// 等价于 new Error('msg')
+const baseError = new BaseError('msg')
+baseError instanceof BaseError === false
+baseError instanceof Error === true
+baseError.what() // 报错
+```
+
+```js
+"use strict"
+var __extends = (this && this.__extends) || (function () {
+  /* ... */
+})()
+var BaseError = /** @class */ (function (_super) {
+  __extends(BaseError, _super)
+  function BaseError () {
+    return _super !== null && _super.apply(this, arguments) || this
+  }
+  /** @virtual */
+  BaseError.prototype.what = function () {
+    return this.message
+  }
+  return BaseError
+}(Error))
+Object.defineProperty(BaseError.prototype, 'name', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: 'BaseError'
+})
+```
+
+</Step>
+
+<Step subtitle="tsc 的 super() 只是简单调用了基类构造函数，Error 不使用 new 也可以返回一个对象，所以 new BaseError() 实际上是 Error 实例">
+
+```diff 15:19
+```
+
+```diff 8[31:59]
+```
+
+</Step>
+
+<Step subtitle="需要手动修复 __proto__">
+
+```ts
+declare interface ErrorConstructor {
+  captureStackTrace (
+    error: object,
+    constructorOpt?: Function
+  ): void
+}
+
+class BaseError extends Error {
+  constructor (message?: string) {
+    super(message)
+    const Ctor = new.target
+    if (!(this instanceof Ctor)) {
+      // TypeScript compiler ES5 target
+      Object.setPrototypeOf(this, Ctor.prototype)
+
+      if (typeof Error.captureStackTrace === 'function') {
+        Error.captureStackTrace(this, Ctor)
+      }
+    }
+  }
+
+  /** @virtual */
+  what (): string {
+    return this.message
+  }
+}
+
+Object.defineProperty(BaseError.prototype, 'name', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: 'BaseError'
+})
+```
+
+```js
+"use strict"
+var __extends = (this && this.__extends) || (function () {
+  /* ... */
+})()
+var BaseError = /** @class */ (function (_super) {
+  __extends(BaseError, _super)
+  function BaseError (message) {
+    var _newTarget = this.constructor
+    var _this = _super.call(this, message) || this
+    var Ctor = _newTarget
+    if (!(_this instanceof Ctor)) {
+      // TypeScript compiler ES5 target
+      Object.setPrototypeOf(_this, Ctor.prototype)
+      if (typeof Error.captureStackTrace === 'function') {
+        Error.captureStackTrace(_this, Ctor)
+      }
+    }
+    return _this
+  }
+  /** @virtual */
+  BaseError.prototype.what = function () {
+    return this.message
+  }
+  return BaseError
+}(Error))
+Object.defineProperty(BaseError.prototype, 'name', {
+  configurable: true,
+  writable: true,
+  enumerable: false,
+  value: 'BaseError'
+})
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+<Step subtitle="再看继承不可 new 的内置类，比如 Uint8Array">
+
+```ts
+class Buffer extends Uint8Array {
+  static get [Symbol.species] () {
+    return Uint8Array
+  }
+}
+
+const buffer = new Buffer([1, 2, 3]) // 报错
+```
+
+```js
+"use strict"
+var __extends = (this && this.__extends) || (function () {
+  /* ... */
+})()
+var Buffer = /** @class */ (function (_super) {
+  __extends(Buffer, _super)
+  function Buffer() {
+    return _super !== null && _super.apply(this, arguments) || this
+  }
+  Object.defineProperty(Buffer, Symbol.species, {
+    get: function () {
+      return Uint8Array
+    },
+    enumerable: false,
+    configurable: true
+  })
+  return Buffer
+}(Uint8Array))
+```
+
+</Step>
+
+<Step subtitle="同样的问题，tsc 的 super() 只是简单调用了基类构造函数，但是 Uint8Array 必须使用 new">
+
+```diff 7
+```
+
+```diff 8[31:59]
+```
+
+</Step>
+
+<Step subtitle="可以手动继承，但是丢失了基类属性和方法签名">
+
+```ts
+class Buffer {
+  constructor (length: number)
+  constructor (array: ArrayLike<number> | ArrayBufferLike)
+  constructor (
+    buffer: ArrayBufferLike,
+    byteOffset?: number,
+    length?: number
+  )
+  constructor (
+    buffer: any,
+    byteOffset?: any,
+    length?: any
+  ) {
+    return Reflect.construct(Uint8Array,
+      [buffer, byteOffset, length], Buffer)
+  }
+
+  static get [Symbol.species] () {
+    return Uint8Array
+  }
+}
+
+Object.defineProperty(Buffer, 'prototype', {
+  configurable: false,
+  enumerable: false,
+  writable: false
+})
+Object.setPrototypeOf(Buffer, Uint8Array)
+Object.setPrototypeOf(Buffer.prototype, Uint8Array.prototype)
+Object.defineProperty(Buffer.prototype, 'constructor', {
+  configurable: true,
+  enumerable: false,
+  writable: true,
+  value: Buffer
+})
+
+const buffer = new Buffer([1, 2, 3])
+```
+
+```js
+"use strict";
+var Buffer = /** @class */ (function () {
+  function Buffer (buffer, byteOffset, length) {
+    return Reflect.construct(Uint8Array,
+      [buffer, byteOffset, length], Buffer)
+  }
+  Object.defineProperty(Buffer, Symbol.species, {
+    get: function () {
+      return Uint8Array
+    },
+    enumerable: false,
+    configurable: true
+  })
+  return Buffer
+}())
+Object.defineProperty(Buffer, 'prototype', {
+  configurable: false,
+  enumerable: false,
+  writable: false
+})
+Object.setPrototypeOf(Buffer, Uint8Array)
+Object.setPrototypeOf(Buffer.prototype, Uint8Array.prototype)
+Object.defineProperty(Buffer.prototype, 'constructor', {
+  configurable: true,
+  enumerable: false,
+  writable: true,
+  value: Buffer
+})
+```
+
+</Step>
+
+<Step subtitle="Babel 的 ES5 转译没有问题">
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 如果对你有帮助可以一键三连
