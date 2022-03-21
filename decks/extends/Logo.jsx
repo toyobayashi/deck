@@ -12,7 +12,7 @@ const style = {
 export default function () {
   return (
     <div style={style}>
-      <img src={js} alt='webpack' width={200} />
+      <img src={js} alt='webpack' width={280} />
     </div>
   )
 }

@@ -4,11 +4,11 @@ import Logo from './Logo.jsx'
 
 export const theme = customTheme
 
-# ES6 class 与 extends 的本质
+# 脱掉 class 与 extends 的糖衣
 
 <Logo />
 
-脱掉 class 的糖衣
+ES6 class 与 extends 的本质
 
 ---
 
@@ -19,6 +19,18 @@ export const theme = customTheme
 - 继承 Error
 - 实现继承 Promise 的 Deferred
 - tsc 编译到 ES5 继承内置类存在的坑
+
+---
+
+# 提前声明
+
+视频内容 **不保证** 对所有人都有意义
+
+但可以尽量保证对 **大多数** JavaScript 学习者观众有意义
+
+认为用处不大或没有意义，也请键盘下留点情，创作不易，请尊重劳动成果
+
+有错误之处欢迎评论区留言指正，认为有帮助可以一键三连
 
 ---
 
@@ -163,7 +175,7 @@ var Component = /*#__PURE__*/ (function () {
 ```diff 5
 ```
 
-```js 5:25,30 file=./class/9-2.js
+```js 5:25,30:31 file=./class/9-2.js
 ```
 
 </Step>
@@ -354,7 +366,7 @@ setTimeout(() => {
 
 </Step>
 
-<Step subtitle="定义 Symbol.species 确保 then catch 等基类方法返回值构造 Promise 而不是 Deferred，因为 Deferred 构造函数不接收 executor">
+<Step subtitle="定义 Symbol.species 确保 then catch 等基类方法构造 Promise 返回，因为 Deferred 构造函数不接收 executor">
 
 ```js file=./class/18-1.js
 ```
@@ -573,7 +585,7 @@ var Buffer = /** @class */ (function (_super) {
 
 </Step>
 
-<Step subtitle="可以手动继承，但是丢失了基类属性和方法签名">
+<Step subtitle="可以手动继承，但是丢失了基类属性和方法签名，Babel 的 ES5 转译没有问题">
 
 ```ts
 class Buffer {
@@ -648,18 +660,10 @@ Object.defineProperty(Buffer.prototype, 'constructor', {
 
 </Step>
 
-<Step subtitle="Babel 的 ES5 转译没有问题">
-
-```diff
-```
-
-```diff
-```
-
-</Step>
-
 </CodeSurferColumns>
 
 ---
 
-# 如果对你有帮助可以一键三连
+# 感谢观看
+
+如果对你有帮助可以一键三连
