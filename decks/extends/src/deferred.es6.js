@@ -1,20 +1,20 @@
-const _methods = new WeakMap()
-const _state = new WeakMap()
-
 class Deferred extends Promise {
-  constructor (executor) {
+  #methods
+  #state
+
+  constructor (/* executor */) {
     let methods
 
-    super(function (_resolve, _reject) {
-      function fulfill (value) {
-        _state.set(_this, 'fulfilled')
+    super((_resolve, _reject) => {
+      const fulfill = (value) => {
+        this.#state = 'fulfilled'
         _resolve(value)
       }
-      function reject (reason) {
-        _state.set(_this, 'rejected')
+      const reject = (reason) => {
+        this.#state = 'rejected'
         _reject(reason)
       }
-      function resolve (value) {
+      const resolve = (value) => {
         if (
           (typeof value === 'object' && value !== null) ||
           typeof value === 'function'
@@ -49,9 +49,8 @@ class Deferred extends Promise {
       } */
     })
 
-    const _this = this
-    _state.set(_this, 'pending')
-    _methods.set(_this, methods)
+    this.#state = 'pending'
+    this.#methods = methods
   }
 
   static get [Symbol.species] () {
@@ -59,15 +58,15 @@ class Deferred extends Promise {
   }
 
   resolve (value) {
-    _methods.get(this).resolve(value)
+    this.#methods.resolve(value)
   }
 
   reject (reason) {
-    _methods.get(this).reject(reason)
+    this.#methods.reject(reason)
   }
 
   get state () {
-    return _state.get(this)
+    return this.#state
   }
 
   get [Symbol.toStringTag] () {
