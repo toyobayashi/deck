@@ -7,6 +7,10 @@ var Deferred = /*#__PURE__*/ (function (SuperClass) {
   var _state = new WeakMap()
 
   function Deferred (executor) {
+    if (!(this instanceof Deferred)) {
+      throw new TypeError("Class constructor Deferred cannot be invoked without 'new'")
+    }
+
     var methods
 
     var _this = _super(function (_resolve, _reject) {

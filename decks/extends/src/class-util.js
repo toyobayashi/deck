@@ -5,7 +5,8 @@ function createSuper (SubClass, SuperClass) {
   return canUseReflectConstruct
     ? function () {
         var args = Array.prototype.slice.call(arguments)
-        return Reflect.construct(SuperClass, args, SubClass)
+        var newTarget = SubClass // Object.getPrototypeOf(this).constructor
+        return Reflect.construct(SuperClass, args, newTarget)
       }
     : function () {
         var args = Array.prototype.slice.call(arguments)
@@ -18,19 +19,23 @@ function createSuper (SubClass, SuperClass) {
       }
 }
 
-function inherit (SubClass, SuperClass) {
-  Object.setPrototypeOf(SubClass, SuperClass)
-  Object.defineProperty(SubClass, 'prototype', {
+function initializePrototype (Class) {
+  Object.defineProperty(Class, 'prototype', {
     configurable: false,
     enumerable: false,
     writable: false
   })
-  Object.defineProperty(SubClass.prototype, 'constructor', {
+  Object.defineProperty(Class.prototype, 'constructor', {
     configurable: true,
     writable: true,
     enumerable: false,
-    value: SubClass
+    value: Class
   })
+}
+
+function inherit (SubClass, SuperClass) {
+  initializePrototype(SubClass)
+  Object.setPrototypeOf(SubClass, SuperClass)
   Object.setPrototypeOf(SubClass.prototype, SuperClass.prototype)
 }
 
@@ -117,5 +122,14 @@ function defineStaticGetter (Class, name, fn) {
       enumerable: false,
       value: name
     })
+  })
+}
+
+function defineStaticField (Class, name, value) {
+  Object.defineProperty(Class, name, {
+    configurable: true,
+    writable: true,
+    enumerable: true,
+    value: value
   })
 }
