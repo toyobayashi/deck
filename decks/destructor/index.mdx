@@ -1,0 +1,855 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-cpp"
+import "prismjs/components/prism-rust"
+import Logo from '../extends/Logo.jsx'
+
+export const theme = customTheme
+
+# JavaScript 中的 “析构函数”
+
+<Logo />
+
+介绍 ES2021 的 FinalizationRegistry 和 WeakRef
+
+---
+
+# 本期内容
+
+- 什么是析构函数
+- 资源获取即初始化 (RAII)
+- ES2021 FinalizationRegistry
+- ES2021 WeakRef
+
+---
+
+# 什么是析构函数
+
+考虑到没有 C++ / Rust 经验的观众，先介绍一下什么是析构函数
+
+---
+
+<CodeSurferColumns>
+
+<Step>
+
+```cpp
+// C++
+```
+
+```rust
+// Rust
+```
+
+</Step>
+
+<Step>
+
+```cpp
+#include <iostream>
+
+class X {
+ public:
+  X() = default;
+  ~X() noexcept {
+    std::cout << "~X()\n";
+  }
+  X(X&&) = default;
+  X& operator=(X&&) = default;
+};
+
+int main() {
+  {
+    X x;
+  }  // <-- 调用析构函数
+  std::cout << "C++\n";
+  return 0;
+}
+```
+
+```diff
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```rust
+struct X {}
+
+impl X {
+  pub fn new() -> X {
+    X {}
+  }
+}
+
+impl Drop for X {
+  fn drop(&mut self) {
+    println!("X::drop()");
+  }
+}
+
+fn main() {
+  {
+    let _x = X::new();
+  } // <-- 调用 drop
+  println!("Rust");
+}
+```
+
+</Step>
+
+<Step subtitle="离开作用域，对象内存被释放前，析构函数被调用">
+
+```diff 6:8,14:16
+```
+
+```diff 9:13,16:18
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 资源获取即初始化 (RAII)
+
+Resource Acquisition Is Initialization
+
+这是在 C++ 和 Rust 都有的一种模式
+
+资源在 **构造函数** 中 被获取，在 **析构函数** 中 被释放
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="写一个 File 类，有一个 FILE* 文件描述符成员">
+
+```cpp
+#include <cstddef>
+#include <cstdlib>
+#include <string>
+#include <memory>
+#include <iostream>
+
+class File {
+ private:
+  FILE* f_;
+
+ public:
+  File(const char*,
+       const char*) noexcept;
+  ~File() noexcept;
+  File(File&&) noexcept;
+  File& operator=(File&&) noexcept;
+  bool Ok() const noexcept { return f_ != nullptr; }
+  std::string ReadToString() const;
+};
+```
+
+```rust
+use libc::{
+  fopen,
+  ftell,
+  fseek,
+  fread,
+  fclose,
+  FILE,
+  SEEK_END,
+  SEEK_SET,
+  c_void
+};
+use std::error::Error;
+use std::ffi::{CString, NulError};
+use std::ptr::null_mut;
+
+struct File {
+  f: *mut FILE
+}
+
+impl File {
+  #[inline]
+  pub fn ok(&self) -> bool {
+    !self.f.is_null()
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="在 C++ 析构函数 / Rust Drop 特征的 drop 函数 中关闭文件">
+
+```cpp
+#include <cstddef>
+#include <cstdlib>
+#include <string>
+#include <memory>
+#include <iostream>
+
+class File {
+ private:
+  FILE* f_;
+
+ public:
+  File(const char*,
+       const char*) noexcept;
+  ~File() noexcept;
+  File(File&&) noexcept;
+  File& operator=(File&&) noexcept;
+  bool Ok() const noexcept { return f_ != nullptr; }
+  std::string ReadToString() const;
+};
+
+File::~File() noexcept {
+  if (Ok()) {
+    int r = ::fclose(f_);
+    if (r == 0) {
+      f_ = nullptr;
+    } else {
+      std::cerr << "fclose failed\n";
+      std::abort();
+    }
+  }
+  std::cout << "~File()\n";
+}
+```
+
+```rust
+use libc::{
+  fopen,
+  ftell,
+  fseek,
+  fread,
+  fclose,
+  FILE,
+  SEEK_END,
+  SEEK_SET,
+  c_void
+};
+use std::error::Error;
+use std::ffi::{CString, NulError};
+use std::ptr::null_mut;
+
+struct File {
+  f: *mut FILE
+}
+
+impl Drop for File {
+  fn drop(&mut self) {
+    if self.ok() {
+      unsafe {
+        let r = fclose(self.f);
+        if r == 0 {
+          self.f = null_mut();
+        } else {
+          panic!("fclose failed")
+        }
+      }
+    }
+    println!("~File()");
+  }
+}
+
+impl File {
+  #[inline]
+  pub fn ok(&self) -> bool {
+    !self.f.is_null()
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="在构造函数中打开文件，得到文件描述符。C++ 定义移动成员，拷贝成员被删除，而 Rust 天生是 “移动” 。">
+
+```cpp
+#include <cstddef>
+#include <cstdlib>
+#include <string>
+#include <memory>
+#include <iostream>
+
+class File {
+ private:
+  FILE* f_;
+
+ public:
+  File(const char*,
+       const char*) noexcept;
+  ~File() noexcept;
+  File(File&&) noexcept;
+  File& operator=(File&&) noexcept;
+  bool Ok() const noexcept { return f_ != nullptr; }
+  std::string ReadToString() const;
+};
+
+File::~File() noexcept {
+  if (Ok()) {
+    int r = ::fclose(f_);
+    if (r == 0) {
+      f_ = nullptr;
+    } else {
+      std::cerr << "fclose failed\n";
+      std::abort();
+    }
+  }
+  std::cout << "~File()\n";
+}
+
+File::File(const char* path,
+           const char* mode) noexcept:
+  f_(::fopen(path, mode)) {}
+
+File::File(File&& other) noexcept: f_(other.f_) {
+  other.f_ = nullptr;
+}
+
+File& File::operator=(File&& other) noexcept {
+  if (this != std::addressof(other)) {
+    if (Ok()) {
+      if (::fclose(f_)) {
+        std::cerr << "fclose failed\n";
+        std::abort();
+      }
+    }
+    f_ = other.f_;
+    other.f_ = nullptr;
+  }
+  return *this;
+}
+```
+
+```rust
+use libc::{
+  fopen,
+  ftell,
+  fseek,
+  fread,
+  fclose,
+  FILE,
+  SEEK_END,
+  SEEK_SET,
+  c_void
+};
+use std::error::Error;
+use std::ffi::{CString, NulError};
+use std::ptr::null_mut;
+
+struct File {
+  f: *mut FILE
+}
+
+impl Drop for File {
+  fn drop(&mut self) {
+    if self.ok() {
+      unsafe {
+        let r = fclose(self.f);
+        if r == 0 {
+          self.f = null_mut();
+        } else {
+          panic!("fclose failed")
+        }
+      }
+    }
+    println!("~File()");
+  }
+}
+
+impl File {
+  pub unsafe fn new(
+    path: &str,
+    mode: &str
+  ) -> Result<File, NulError> {
+    let cpath = CString::new(path)?;
+    let cmode = CString::new(mode)?;
+    Ok(File {
+      f: fopen(
+        cpath.as_ptr(),
+        cmode.as_ptr()
+      )
+    })
+  }
+
+  #[inline]
+  pub fn ok(&self) -> bool {
+    !self.f.is_null()
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="离开作用域时，C++ 调用类的析构函数，Rust 调用 Drop 特征的 drop 函数，不用手动关闭文件">
+
+```cpp file=./src/file.cpp
+```
+
+```rust file=./src/file.rs
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="ES2021 FinalizationRegistry"
+/**
+ * JavaScript 是带有垃圾回收的脚本语言
+ * 不需要开发者手动管理内存
+ * 在 ES2021 前，没有类似析构函数的东西存在
+ * 
+ * V8 8.4 开始可用
+ * Chrome 84 开始可用
+ * Node.js 14.6.0 开始可用
+ */
+
+declare class FinalizationRegistry<T> {
+  // 构造函数，传入一个清理回调函数，当此注册表中登记的对象被回收后，清理回调被调用
+  constructor (cleanupCallback: (heldValue: T) => void)
+
+  // 登记对象，heldValue 会被传入清理回调
+  // unregisterToken 是取消登记时用的唯一标识对象
+  register(target: object, heldValue: T, unregisterToken?: object): void
+
+  // 取消登记
+  unregister(unregisterToken: object): void
+}
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```js file=./index.js subtitle="用 JavaScript 来写前面文件类的例子"
+```
+
+```diff 8,15,17:20,25:28 subtitle="与 C++ / Rust 不一样的是，对象回收时机取决于引擎实现，清理回调在回收后多长时间调用也取决于引擎，甚至可能永远不调用（比如突然关闭浏览器），由于清理回调被调用时对象肯定已经被回收，所以无法访问对象实例。把关闭文件的操作放在清理回调中是不安全的"
+```
+
+```js subtitle="清理回调应该用作提醒或上报"
+const { openSync, closeSync } = require('fs')
+
+class File {
+  #f
+  #heldValue
+
+  constructor (path, mode) {
+    this.#f = openSync(path, mode)
+    this.#heldValue = {
+      fd: this.#f,
+      closed: false
+    }
+    File.registry.register(this, this.#heldValue)
+  }
+
+  readToString () {
+    // ...
+  }
+
+  static registry = new FinalizationRegistry(File.cleanup)
+
+  static cleanup (heldValue) {
+    console.log('~File()')
+    if (!heldValue.closed) {
+      console.warn('你忘了关闭文件！')
+      closeSync(heldValue.fd)
+    }
+  }
+}
+
+let file = new File('package.json', 'r')
+console.log(file.readToString())
+file = null // File 准备好被回收了
+
+// 命令行参数 --expose-gc
+global.gc() // node 手动触发垃圾回收
+```
+
+```js subtitle="手动关闭才是安全的"
+const { openSync, closeSync } = require('fs')
+
+class File {
+  #f
+  #heldValue
+
+  constructor (path, mode) {
+    this.#f = openSync(path, mode)
+    this.#heldValue = {
+      fd: this.#f,
+      closed: false
+    }
+    File.registry.register(this, this.#heldValue)
+  }
+
+  readToString () {
+    // ...
+  }
+
+  static registry = new FinalizationRegistry(File.cleanup)
+
+  static cleanup (heldValue) {
+    console.log('~File()')
+    if (!heldValue.closed) {
+      console.warn('你忘了关闭文件！')
+      closeSync(heldValue.fd)
+    }
+  }
+
+  dispose () {
+    if (this.#f) {
+      closeSync(this.#f)
+      this.#f = 0
+      this.#heldValue.closed = true
+      this.#heldValue = null
+    }
+  }
+}
+
+let file = new File('package.json', 'r')
+console.log(file.readToString())
+file.dispose()
+file = null // File 准备好被回收了
+
+// 命令行参数 --expose-gc
+global.gc() // node 手动触发垃圾回收
+```
+
+```js subtitle="但是手动关闭容易忘记，所以模拟一下同步调用 “析构函数” 的 “作用域”"
+const { openSync, closeSync } = require('fs')
+
+class File {
+  #f
+  #heldValue
+
+  constructor (path, mode) {
+    this.#f = openSync(path, mode)
+    this.#heldValue = {
+      fd: this.#f,
+      closed: false
+    }
+    File.registry.register(this, this.#heldValue)
+  }
+
+  readToString () {
+    // ...
+  }
+
+  static registry = new FinalizationRegistry(File.cleanup)
+
+  static cleanup (heldValue) {
+    console.log('~File()')
+    if (!heldValue.closed) {
+      console.warn('你忘了关闭文件！')
+      closeSync(heldValue.fd)
+    }
+  }
+
+  dispose () {
+    if (this.#f) {
+      closeSync(this.#f)
+      this.#f = 0
+      this.#heldValue.closed = true
+      this.#heldValue = null
+    }
+  }
+
+  static withOpen (path, mode, f) {
+    const file = new File(path, mode)
+    let r
+    try {
+      r = f(file)
+    } finally {
+      file.dispose()
+    }
+    return r
+  }
+}
+
+const data = File.withOpen('package.json', 'r',
+  (file) => {
+    // file 做各种各样的事情
+    return file.readToString()
+  })
+console.log(data)
+
+// 命令行参数 --expose-gc
+global.gc() // node 手动触发垃圾回收
+```
+
+```js subtitle="甚至可以做更通用一点"
+const { openSync, closeSync } = require('fs')
+
+class File {
+  #f
+  #heldValue
+
+  constructor (path, mode) {
+    this.#f = openSync(path, mode)
+    this.#heldValue = {
+      fd: this.#f,
+      closed: false
+    }
+    File.registry.register(this, this.#heldValue)
+  }
+
+  readToString () {
+    // ...
+  }
+
+  static registry = new FinalizationRegistry(File.cleanup)
+
+  static cleanup (heldValue) {
+    console.log('~File()')
+    if (!heldValue.closed) {
+      console.warn('你忘了关闭文件！')
+      closeSync(heldValue.fd)
+    }
+  }
+
+  dispose () {
+    if (this.#f) {
+      closeSync(this.#f)
+      this.#f = 0
+      this.#heldValue.closed = true
+      this.#heldValue = null
+    }
+  }
+}
+
+class Scope {
+  #disposables
+  constructor () {
+    this.#disposables = new Set()
+  }
+
+  add (disposable) {
+    if (typeof disposable.dispose !== 'function') {
+      throw new TypeError('你传错了的嘛')
+    }
+    this.#disposables.add(disposable)
+    return disposable
+  }
+  
+  dispose () {
+    if (!this.#disposables) return
+    for (const disposable of this.#disposables) {
+      disposable.dispose()
+    }
+    this.#disposables.clear()
+    this.#disposables = null
+  }
+}
+
+const data = File.withOpen('package.json', 'r',
+  (file) => {
+    // file 做各种各样的事情
+    return file.readToString()
+  })
+console.log(data)
+
+// 命令行参数 --expose-gc
+global.gc() // node 手动触发垃圾回收
+```
+
+```js subtitle="把可以 dispose 的对象都加进 scope 里，自动调用 dispose"
+const { openSync, closeSync } = require('fs')
+
+class File {
+  #f
+  #heldValue
+
+  constructor (path, mode) {
+    this.#f = openSync(path, mode)
+    this.#heldValue = {
+      fd: this.#f,
+      closed: false
+    }
+    File.registry.register(this, this.#heldValue)
+  }
+
+  readToString () {
+    // ...
+  }
+
+  static registry = new FinalizationRegistry(File.cleanup)
+
+  static cleanup (heldValue) {
+    console.log('~File()')
+    if (!heldValue.closed) {
+      console.warn('你忘了关闭文件！')
+      closeSync(heldValue.fd)
+    }
+  }
+
+  dispose () {
+    if (this.#f) {
+      closeSync(this.#f)
+      this.#f = 0
+      this.#heldValue.closed = true
+      this.#heldValue = null
+    }
+  }
+}
+
+class Scope {
+  #disposables
+  constructor () {
+    this.#disposables = new Set()
+  }
+
+  add (disposable) {
+    if (typeof disposable.dispose !== 'function') {
+      throw new TypeError('你传错了的嘛')
+    }
+    this.#disposables.add(disposable)
+    return disposable
+  }
+  
+  dispose () {
+    if (!this.#disposables) return
+    for (const disposable of this.#disposables) {
+      disposable.dispose()
+    }
+    this.#disposables.clear()
+    this.#disposables = null
+  }
+}
+
+function openScope (f) {
+  const scope = new Scope()
+  let r
+  try {
+    r = f(scope)
+  } finally {
+    scope.dispose()
+  }
+  return r
+}
+
+const data = openScope((scope) => {
+  const file = scope.add(new File('package.json', 'r'))
+  // file 做各种各样的事情
+  return file.readToString()
+})
+console.log(data)
+
+// 命令行参数 --expose-gc
+global.gc() // node 手动触发垃圾回收
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="与 FinalizationRegistry 同时新增的 API 还有 WeakRef"
+declare class WeakRef<T extends object> {
+  // 传入对象对其进行弱引用
+  // 不阻止回收该对象
+  constructor (target: T)
+
+  // 解引用对象
+  // 如果对象被回收返回 undefined
+  deref(): T | undefined
+}
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```js subtitle="WeakRef 可以用来做缓存，有缓存返回缓存，没缓存重新拿了再缓存"
+function getData (key) {
+  // 昂贵操作
+  // 后端查库 或 前端发请求
+}
+
+function makeWeakCached (f) {
+  const cache = new Map()
+
+  return function (key) {
+    const ref = cache.get(key)
+    if (ref) {
+      const cached = ref.deref()
+      if (cached !== undefined) return cached
+    }
+
+    const fresh = f(key)
+    cache.set(key, new WeakRef(fresh))
+    return fresh
+  }
+}
+
+const getCachedData = makeWeakCached(getData)
+```
+
+```js subtitle="配合 FinalizationRegistry 从 Map 中删除失效的缓存 key"
+function getData (key) {
+  // 昂贵操作
+  // 后端查库 或 前端发请求
+}
+
+function makeWeakCached (f) {
+  const cache = new Map()
+  const cleanup = new FinalizationRegistry(key => {
+    const ref = cache.get(key)
+    if (ref && !ref.deref()) cache.delete(key)
+  })
+
+  return function (key) {
+    const ref = cache.get(key)
+    if (ref) {
+      const cached = ref.deref()
+      if (cached !== undefined) return cached
+    }
+
+    const fresh = f(key)
+    cache.set(key, new WeakRef(fresh))
+    cleanup.register(fresh, key)
+    return fresh
+  }
+}
+
+const getCachedData = makeWeakCached(getData)
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+V8 官方介绍：[https://v8.dev/features/weak-references](https://v8.dev/features/weak-references)
+
+V8 8.4：[https://v8.dev/blog/v8-release-84#weak-references-and-finalizers](https://v8.dev/blog/v8-release-84#weak-references-and-finalizers)
+
+如果对你有帮助可以一键三连
