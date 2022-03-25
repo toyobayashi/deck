@@ -427,10 +427,10 @@ declare class FinalizationRegistry<T> {
 
   // 登记对象，heldValue 会被传入清理回调
   // unregisterToken 是取消登记时用的唯一标识对象
-  register(target: object, heldValue: T, unregisterToken?: object): void
+  register (target: object, heldValue: T, unregisterToken?: object): void
 
   // 取消登记
-  unregister(unregisterToken: object): void
+  unregister (unregisterToken: object): void
 }
 ```
 
@@ -440,7 +440,7 @@ declare class FinalizationRegistry<T> {
 
 <CodeSurfer>
 
-```js file=./index.js subtitle="用 JavaScript 来写前面文件类的例子"
+```js file=./file.js subtitle="用 JavaScript 来写前面文件类的例子"
 ```
 
 ```diff 8,15,17:20,25:28 subtitle="与 C++ / Rust 不一样的是，对象回收时机取决于引擎实现，清理回调在回收后多长时间调用也取决于引擎，甚至可能永远不调用（比如突然关闭浏览器），由于清理回调被调用时对象肯定已经被回收，所以无法访问对象实例。把关闭文件的操作放在清理回调中是不安全的"
@@ -774,7 +774,7 @@ declare class WeakRef<T extends object> {
 
   // 解引用对象
   // 如果对象被回收返回 undefined
-  deref(): T | undefined
+  deref (): T | undefined
 }
 ```
 
