@@ -2,7 +2,6 @@ import { defineConfig } from 'rollup'
 import { join } from 'path'
 
 import { terser as rollupTerser } from 'rollup-plugin-terser'
-import rollupTypescript from '@rollup/plugin-typescript'
 import rollupJSON from '@rollup/plugin-json'
 import rollupCommonJS from '@rollup/plugin-commonjs'
 import rollupReplace from '@rollup/plugin-replace'
@@ -25,7 +24,24 @@ function replaceProcessNodeEnv (format, minify) {
         ? '"production"'
         : '"development"'
     case 'esm-bundler':
-      return '(process.env.NODE_ENV)'
+      return 'process.env.NODE_ENV'
+    default:
+      throw new TypeError(`Unsupport format: ${format}`)
+  }
+}
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {string}
+ */
+function replaceDev (format, minify) {
+  switch (format) {
+    case 'umd':
+    case 'cjs':
+      return minify ? 'false' : 'true'
+    case 'esm-bundler':
+      return 'process.env.NODE_ENV !== "production"'
     default:
       throw new TypeError(`Unsupport format: ${format}`)
   }
@@ -38,11 +54,8 @@ function replaceProcessNodeEnv (format, minify) {
  */
 function createOption (format, minify) {
   return {
-    input: join(__dirname, 'src/index.ts'),
+    input: join(__dirname, 'lib/index.js'),
     plugins: [
-      rollupTypescript({
-        tsconfig: join(__dirname, 'tsconfig.json')
-      }),
       rollupNodeResolve({
         mainFields: ['browser', 'module', 'main']
       }),
@@ -50,7 +63,9 @@ function createOption (format, minify) {
 
       rollupReplace({
         preventAssignment: true,
-        'process.env.NODE_ENV': replaceProcessNodeEnv(format, minify)
+        'process.env.NODE_ENV': replaceProcessNodeEnv(format, minify),
+        __DEV__: replaceDev(format, minify),
+        __VERSION__: JSON.stringify(require('./package.json').version)
       }),
       rollupCommonJS({
         transformMixedEsModules: true,

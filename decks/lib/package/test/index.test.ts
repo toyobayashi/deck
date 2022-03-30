@@ -1,5 +1,5 @@
-import hello from '..'
+import { dev } from '..'
 
-test('export default string', () => {
-  expect(hello).toBe('hello rollup typescript')
+test('__DEV__', () => {
+  expect(dev).toBe(true)
 })

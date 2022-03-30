@@ -4,8 +4,7 @@
     "target": "ES5",
     "module": "ESNext",
     "declaration": true,
-    "emitDeclarationOnly": true,
-    "outDir": "./types"
+    "outDir": "lib"
   },
   "include": [
     "./src/**/*"
