@@ -53,6 +53,15 @@ function replaceDev (format, minify) {
  * @returns {import('rollup').RollupOptions}
  */
 function createOption (format, minify) {
+  const name = `option${
+    format === 'umd'
+      ? ''
+      : `.${format}`
+    }${
+      minify
+        ? '.min'
+        : ''
+    }.js`
   return {
     input: join(__dirname, 'lib/index.js'),
     plugins: [
@@ -89,7 +98,7 @@ function createOption (format, minify) {
         : [])
     ],
     output: {
-      file: join(__dirname, `dist/option${format === 'umd' ? '' : ('.' + format)}${minify ? '.min' : ''}.js`),
+      file: join(__dirname, 'dist', name),
       format: format === 'esm-bundler' ? 'esm' : format,
       name: 'rustOption',
       exports: 'named'
@@ -102,6 +111,5 @@ export default defineConfig([
   createOption('umd', true),
   createOption('cjs', false),
   createOption('cjs', true),
-  createOption('esm-bundler', false),
-  createOption('esm-bundler', true)
+  createOption('esm-bundler', false)
 ])
