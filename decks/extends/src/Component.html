@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Component</title>
+</head>
+<body>
+  <script src="./class-util.js"></script>
+  <script src="./Component.js"></script>
+  <script>
+    (function () {
+      var app = new App({ a: 1 })
+      console.log('app instanceof App === ' + (app instanceof App))
+      console.log('app instanceof Component === ' + (app instanceof Component))
+      console.log(app.props)
+      console.log(app.render())
+      app.setState({
+        count: app.count + 1
+      }, () => {
+        console.log(app.render())
+      })
+    })()
+  </script>
+</body>
+</html>

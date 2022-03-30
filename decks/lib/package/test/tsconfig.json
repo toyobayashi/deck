@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "CommonJS"
+  },
+  "include": [
+    "./**/*.ts"
+  ]
+}

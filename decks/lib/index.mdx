@@ -1,0 +1,1237 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# 如何编写 JavaScript 库
+
+<Logo />
+
+写库发包要考虑什么？如何配置一个库的工程项目？
+
+---
+
+# 本期内容
+
+- 考虑用户可以如何使用你写的库
+- 配置 TypeScript
+- 配置 Rollup
+- 实现
+- 生成 TypeScript 声明文件和 API 文档
+- 添加 Jest 单元测试
+- 在 NPM 上发包
+
+---
+
+假设现在我们要在 JS 中
+
+实现类似 Rust 的 Option 枚举
+
+和类似 Rust match 匹配枚举
+
+并把它写成库，提供给其他 JS 开发者使用
+
+要如何下手？
+
+---
+
+# 考虑用户可以如何使用你写的库
+
+---
+
+<CodeSurfer>
+
+```markup subtitle="HTML 中可以直接导入 script"
+<html>
+
+<script src="option.min.js"></script>
+
+<script>
+  // 提供 window.rustOption 命名空间
+  const {
+    Option, Some, None, matchEnum
+  } = window.rustOption
+  const s = Some(3)
+  const n = None()
+  console.log(s instanceof Option)
+  console.log(s.isSome())
+  console.log(s.unwrap(0))
+  console.log(n.isNone())
+  console.log(n.unwrapOr(0))
+  const result = matchEnum(s)({
+    Some: (value) => {},
+    None: () => {},
+  })
+</script>
+
+</html>
+```
+
+```markup 1:21 subtitle="Node.js 或 Webpack 中可以 require CommonJS 模块"
+<bash>
+  npm install @tybys/rust-option
+</bash>
+
+<script>
+  // Node.js 环境 或 webpack 等支持 CommonJS 的打包器
+  const {
+    Option, Some, None, matchEnum
+  } = require('@tybys/rust-option')
+  const s = Some(3)
+  const n = None()
+  console.log(s instanceof Option)
+  console.log(s.isSome())
+  console.log(s.unwrap(0))
+  console.log(n.isNone())
+  console.log(n.unwrapOr(0))
+  const result = matchEnum(s)({
+    Some: (value) => {},
+    None: () => {},
+  })
+</script>
+```
+
+```markup 1:21 subtitle="Webpack 或 Rollup 等支持 ESModule 的打包器中可以 import ES 模块"
+<bash>
+  npm install @tybys/rust-option
+</bash>
+
+<script>
+  // 打包器
+  import {
+    Option, Some, None, matchEnum
+  } from '@tybys/rust-option'
+  const s = Some(3)
+  const n = None()
+  console.log(s instanceof Option)
+  console.log(s.isSome())
+  console.log(s.unwrap(0))
+  console.log(n.isNone())
+  console.log(n.unwrapOr(0))
+  const result = matchEnum(s)({
+    Some: (value) => {},
+    None: () => {},
+  })
+</script>
+```
+
+```markup 1:10 subtitle="有智能提示和类型检查"
+<bash>
+  npm install @tybys/rust-option
+</bash>
+
+<script lang="ts">
+  // TypeScript
+  import { Some } from '@tybys/rust-option'
+  const s = Some(3)
+  s.unw // <-- 编辑器提示完整 API 及其参数类型
+</script>
+```
+
+```markup
+满足以上条件，我们的库要提供多种模块格式
+
+开发版 UMD：option.js
+生产版 UMD：option.min.js
+开发版 CJS：option.cjs.js
+生产版 CJS：option.cjs.min.js
+打包器 ESM：option.esm-bundler.js
+TS声明文件：option.d.ts
+
+Node  ESM：option.mjs（本期不介绍）
+Node  ESM：option.min.mjs（本期不介绍）
+浏览器 ESM：option.esm.js（本期不介绍）
+浏览器 ESM：option.esm.min.js（本期不介绍）
+
+打包器版本不需要生产版，代码压缩交给用户的打包环节
+```
+
+```markup
+满足以上条件，我们的库要提供多种模块格式
+
+开发版 UMD：option.js
+生产版 UMD：option.min.js
+开发版 CJS：option.cjs.js
+生产版 CJS：option.cjs.min.js
+打包器 ESM：option.esm-bundler.js
+TS声明文件：option.d.ts
+
+这些模块格式不可能每个都手写一遍
+我们要使用 Rollup 来打包库的源码
+用 API Extractor 来打包声明文件
+```
+
+```markup
+满足以上条件，我们的库要提供多种模块格式
+
+开发版 UMD：option.js
+生产版 UMD：option.min.js
+开发版 CJS：option.cjs.js
+生产版 CJS：option.cjs.min.js
+打包器 ESM：option.esm-bundler.js
+TS声明文件：option.d.ts
+
+为什么不使用 Webpack？
+
+因为 Webpack 更适合打包应用，
+打包产物中带了个微型 CommonJS 运行时
+Rollup 打包产物更简洁干净
+没有 CommonJS 运行时，尺寸也更小
+
+但如果你的库带有 CSS，使用 Webpack 会更方便
+```
+
+</CodeSurfer>
+
+---
+
+# 配置 TypeScript
+
+---
+
+<CodeSurfer>
+
+```json
+// tsconfig.base.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "importsNotUsedAsValues": "error",
+    // 依赖 tslib
+    "importHelpers": true, 
+    "noEmitHelpers": true
+  }
+}
+```
+
+```json
+// tsconfig.json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "ESNext",
+    "declaration": true,
+    "outDir": "lib"
+  },
+  "include": [
+    "./src/**/*"
+  ]
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 配置 Rollup
+
+---
+
+<CodeSurfer>
+
+```js
+// rollup.config.js
+
+import { defineConfig } from 'rollup'
+import { join } from 'path'
+
+import { terser as rollupTerser } from 'rollup-plugin-terser'
+import rollupJSON from '@rollup/plugin-json'
+import rollupCommonJS from '@rollup/plugin-commonjs'
+import rollupReplace from '@rollup/plugin-replace'
+import rollupNodeResolve from '@rollup/plugin-node-resolve'
+```
+
+```js
+// rollup.config.js
+
+import { defineConfig } from 'rollup'
+import { join } from 'path'
+
+import { terser as rollupTerser } from 'rollup-plugin-terser'
+import rollupJSON from '@rollup/plugin-json'
+import rollupCommonJS from '@rollup/plugin-commonjs'
+import rollupReplace from '@rollup/plugin-replace'
+import rollupNodeResolve from '@rollup/plugin-node-resolve'
+
+/**
+ * @typedef {'umd' | 'cjs' | 'esm-bundler'} OutputFormat
+ */
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {import('rollup').RollupOptions}
+ */
+function createOption (format, minify) {
+
+}
+
+export default defineConfig([
+  createOption('umd', false),
+  createOption('umd', true),
+  createOption('cjs', false),
+  createOption('cjs', true),
+  createOption('esm-bundler', false)
+])
+```
+
+```js
+// rollup.config.js
+
+import { defineConfig } from 'rollup'
+import { join } from 'path'
+
+import { terser as rollupTerser } from 'rollup-plugin-terser'
+import rollupJSON from '@rollup/plugin-json'
+import rollupCommonJS from '@rollup/plugin-commonjs'
+import rollupReplace from '@rollup/plugin-replace'
+import rollupNodeResolve from '@rollup/plugin-node-resolve'
+
+/**
+ * @typedef {'umd' | 'cjs' | 'esm-bundler'} OutputFormat
+ */
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {import('rollup').RollupOptions}
+ */
+function createOption (format, minify) {
+  const name = `option${
+    format === 'umd'
+      ? ''
+      : `.${format}`
+    }${
+      minify
+        ? '.min'
+        : ''
+    }.js`
+  return {
+    input: join(__dirname, 'lib/index.js'),
+    output: {
+      file: join(__dirname, 'dist', name),
+      format: format === 'esm-bundler' ? 'esm' : format,
+      name: 'rustOption',
+      exports: 'named'
+    }
+  }
+}
+
+export default defineConfig([
+  createOption('umd', false),
+  createOption('umd', true),
+  createOption('cjs', false),
+  createOption('cjs', true),
+  createOption('esm-bundler', false)
+])
+```
+
+```js
+// rollup.config.js
+
+import { defineConfig } from 'rollup'
+import { join } from 'path'
+
+import { terser as rollupTerser } from 'rollup-plugin-terser'
+import rollupJSON from '@rollup/plugin-json'
+import rollupCommonJS from '@rollup/plugin-commonjs'
+import rollupReplace from '@rollup/plugin-replace'
+import rollupNodeResolve from '@rollup/plugin-node-resolve'
+
+/**
+ * @typedef {'umd' | 'cjs' | 'esm-bundler'} OutputFormat
+ */
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {import('rollup').RollupOptions}
+ */
+function createOption (format, minify) {
+  const name = `option${
+    format === 'umd'
+      ? ''
+      : `.${format}`
+    }${
+      minify
+        ? '.min'
+        : ''
+    }.js`
+  return {
+    input: join(__dirname, 'lib/index.js'),
+    plugins: [
+      rollupNodeResolve({
+        mainFields: ['browser', 'module', 'main']
+      }),
+      rollupJSON(),
+
+      rollupReplace({
+        preventAssignment: true,
+        'process.env.NODE_ENV': replaceProcessNodeEnv(format, minify),
+        __DEV__: replaceDev(format, minify),
+        __VERSION__: JSON.stringify(require('./package.json').version)
+      }),
+      rollupCommonJS({
+        transformMixedEsModules: true,
+        extensions: ['.js', 'jsx', '.ts', '.tsx']
+      }),
+      {
+        name: 'typescript-class-pure',
+        transform (code) {
+          return code.replace(
+            /\/\*\* @class \*\/ \(function/g,
+            '/*#__PURE__*/ (function'
+          )
+        }
+      },
+      ...(minify
+        ? [
+            rollupTerser({
+              output: {
+                comments: false
+              },
+              module: format === 'esm-bundler'
+            })
+          ]
+        : [])
+    ],
+    output: {
+      file: join(__dirname, 'dist', name),
+      format: format === 'esm-bundler' ? 'esm' : format,
+      name: 'rustOption',
+      exports: 'named'
+    }
+  }
+}
+
+export default defineConfig([
+  createOption('umd', false),
+  createOption('umd', true),
+  createOption('cjs', false),
+  createOption('cjs', true),
+  createOption('esm-bundler', false)
+])
+```
+
+```js 16:50
+// rollup.config.js
+
+import { defineConfig } from 'rollup'
+import { join } from 'path'
+
+import { terser as rollupTerser } from 'rollup-plugin-terser'
+import rollupJSON from '@rollup/plugin-json'
+import rollupCommonJS from '@rollup/plugin-commonjs'
+import rollupReplace from '@rollup/plugin-replace'
+import rollupNodeResolve from '@rollup/plugin-node-resolve'
+
+/**
+ * @typedef {'umd' | 'cjs' | 'esm-bundler'} OutputFormat
+ */
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {string}
+ */
+function replaceProcessNodeEnv (format, minify) {
+  switch (format) {
+    case 'umd':
+    case 'cjs':
+      return minify
+        ? '"production"'
+        : '"development"'
+    case 'esm-bundler':
+      return 'process.env.NODE_ENV'
+    default:
+      throw new TypeError(`Unsupport format: ${format}`)
+  }
+}
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {string}
+ */
+function replaceDev (format, minify) {
+  switch (format) {
+    case 'umd':
+    case 'cjs':
+      return minify ? 'false' : 'true'
+    case 'esm-bundler':
+      return 'process.env.NODE_ENV !== "production"'
+    default:
+      throw new TypeError(`Unsupport format: ${format}`)
+  }
+}
+
+/**
+ * @param {OutputFormat} format
+ * @param {boolean} minify
+ * @returns {import('rollup').RollupOptions}
+ */
+function createOption (format, minify) {
+  const name = `option${
+    format === 'umd'
+      ? ''
+      : `.${format}`
+    }${
+      minify
+        ? '.min'
+        : ''
+    }.js`
+  return {
+    input: join(__dirname, 'lib/index.js'),
+    plugins: [
+      rollupNodeResolve({
+        mainFields: ['browser', 'module', 'main']
+      }),
+      rollupJSON(),
+
+      rollupReplace({
+        preventAssignment: true,
+        'process.env.NODE_ENV': replaceProcessNodeEnv(format, minify),
+        __DEV__: replaceDev(format, minify),
+        __VERSION__: JSON.stringify(require('./package.json').version)
+      }),
+      rollupCommonJS({
+        transformMixedEsModules: true,
+        extensions: ['.js', 'jsx', '.ts', '.tsx']
+      }),
+      {
+        name: 'typescript-class-pure',
+        transform (code) {
+          return code.replace(
+            /\/\*\* @class \*\/ \(function/g,
+            '/*#__PURE__*/ (function'
+          )
+        }
+      },
+      ...(minify
+        ? [
+            rollupTerser({
+              output: {
+                comments: false
+              },
+              module: format === 'esm-bundler'
+            })
+          ]
+        : [])
+    ],
+    output: {
+      file: join(__dirname, 'dist', name),
+      format: format === 'esm-bundler' ? 'esm' : format,
+      name: 'rustOption',
+      exports: 'named'
+    }
+  }
+}
+
+export default defineConfig([
+  createOption('umd', false),
+  createOption('umd', true),
+  createOption('cjs', false),
+  createOption('cjs', true),
+  createOption('esm-bundler', false)
+])
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 实现
+
+实现不是重点，这里不演示完整实现
+
+只演示实现过程中的要点
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="入口添加包的文档说明，用于 API Extractor"
+// src/index.ts
+
+/**
+ * Rust Option and match for TypeScript
+ *
+ * @packageDocumentation
+ */
+```
+
+```ts subtitle="导出值和类型，所有导出的东西都要标注 API 修饰符，public 表示此 API 是稳定可用的"
+// src/index.ts
+
+/**
+ * Rust Option and match for TypeScript
+ *
+ * @packageDocumentation
+ */
+
+import { Option } from './option'
+
+/** @public */
+export const Some = Option.Some
+
+/** @public */
+export const None = Option.None
+
+export { Option }
+export type { IRefMut } from './option'
+export { OptionIterator } from './option'
+
+export { Enum, Variant } from './enum'
+export type { VariantParameter } from './enum'
+
+export { matchEnum } from './match'
+export type { MatchBranches, Branches } from './match'
+```
+
+```ts
+// src/enum.ts
+
+/** @public */
+export type VariantParameter<Variants> =
+  Variants extends Record<string, new (...args: any[]) => Variant<any[]>>
+    ? InstanceType<Variants[keyof Variants]>
+    : never
+
+/**
+ * Rust 枚举的变体
+ * @public
+ */
+export class Variant<P extends any[]> {
+  constructor (
+    public payload: P
+  ) {}
+}
+
+/**
+ * Rust 的枚举
+ * @public
+ */
+export abstract class Enum<
+  Variants extends Record<string, new (...args: any[]) => Variant<any[]>>
+    = Record<string, new (...args: any[]) => Variant<any[]>>
+> {
+  protected constructor (
+    public variant: VariantParameter<Variants>
+  ) {}
+
+  public abstract get variants (): Variants
+}
+```
+
+```ts subtitle="Option 的实现"
+// src/option.ts
+
+import { Enum, Variant } from './enum'
+
+export class Some<T> extends Variant<[T]> {}
+
+export class None extends Variant<[]> {}
+
+export type OptionVariants<T> = {
+  None: new (p: []) => None
+  Some: new (p: [T]) => Some<T>
+}
+```
+
+```ts subtitle="写 TSDoc 方便生成 API 文档和 IDE 提示"
+// src/option.ts
+
+import { Enum, Variant } from './enum'
+
+export class Some<T> extends Variant<[T]> {}
+
+export class None extends Variant<[]> {}
+
+export type OptionVariants<T> = {
+  None: new (p: []) => None
+  Some: new (p: [T]) => Some<T>
+}
+
+/**
+ * Rust 的 Option
+ * @public
+ */
+export class Option<T> extends Enum<OptionVariants<T>> {
+  /**
+   * 创建 Some
+   * @param value - Some 包裹的值
+   * @returns 返回 Option 枚举
+   */
+  public static Some<T> (value: T): Option<T> {
+    return new Option<T>(new Some<T>([value]))
+  }
+  
+  /**
+   * 创建 None
+   * @returns 返回 Option 枚举
+   */
+  public static None<T> (): Option<T> {
+    return new Option<T>(new None([]))
+  }
+
+  public get variants (): OptionVariants<T> {
+    return {
+      None,
+      Some
+    }
+  }
+}
+```
+
+```ts subtitle="Option 的实现"
+// src/option.ts
+
+import { Enum, Variant } from './enum'
+
+export class Some<T> extends Variant<[T]> {}
+
+export class None extends Variant<[]> {}
+
+export type OptionVariants<T> = {
+  None: new (p: []) => None
+  Some: new (p: [T]) => Some<T>
+}
+
+/**
+ * Rust 的 Option
+ * @public
+ */
+export class Option<T> extends Enum<OptionVariants<T>> {
+  /**
+   * 创建 Some
+   * @param value - Some 包裹的值
+   * @returns 返回 Option 枚举
+   */
+  public static Some<T> (value: T): Option<T> {
+    return new Option<T>(new Some<T>([value]))
+  }
+  
+  /**
+   * 创建 None
+   * @returns 返回 Option 枚举
+   */
+  public static None<T> (): Option<T> {
+    return new Option<T>(new None([]))
+  }
+
+  public get variants (): OptionVariants<T> {
+    return {
+      None,
+      Some
+    }
+  }
+
+  public isSome (): boolean {
+    return this.variant instanceof Some
+  }
+
+  public isNone (): boolean {
+    return this.variant instanceof None
+  }
+
+  public unwrap (): T {
+    if (this.variant instanceof None) {
+      throw new Error('Unwrap None')
+    }
+    return this.variant.payload[0]
+  }
+
+  public unwrapOr (defaultValue: T): T {
+    if (this.variant instanceof None) {
+      return defaultValue
+    }
+    return this.variant.payload[0]
+  }
+}
+```
+
+```ts subtitle="Option 的实现"
+// src/option.ts
+
+import { Enum, Variant } from './enum'
+
+export class Some<T> extends Variant<[T]> {}
+
+export class None extends Variant<[]> {}
+
+export type OptionVariants<T> = {
+  None: new (p: []) => None
+  Some: new (p: [T]) => Some<T>
+}
+
+/**
+ * Rust 的 Option
+ * @public
+ */
+export class Option<T> extends Enum<OptionVariants<T>> {
+  /**
+   * 创建 Some
+   * @param value - Some 包裹的值
+   * @returns 返回 Option 枚举
+   */
+  public static Some<T> (value: T): Option<T> {
+    return new Option<T>(new Some<T>([value]))
+  }
+  
+  /**
+   * 创建 None
+   * @returns 返回 Option 枚举
+   */
+  public static None<T> (): Option<T> {
+    return new Option<T>(new None([]))
+  }
+
+  public get variants (): OptionVariants<T> {
+    return {
+      None,
+      Some
+    }
+  }
+
+  public isSome (): boolean {
+    return this.variant instanceof Some
+  }
+
+  public isNone (): boolean {
+    return this.variant instanceof None
+  }
+
+  public unwrap (): T {
+    if (this.variant instanceof None) {
+      throw new Error('Unwrap None')
+    }
+    return this.variant.payload[0]
+  }
+
+  public unwrapOr (defaultValue: T): T {
+    if (this.variant instanceof None) {
+      return defaultValue
+    }
+    return this.variant.payload[0]
+  }
+
+  public and<U> (value: Option<U>): Option<U> {
+    if (this.variant instanceof None) {
+      return Option.None<U>()
+    }
+    return value
+  }
+
+  public or (value: Option<T>): Option<T> {
+    if (this.variant instanceof None) {
+      return value
+    }
+    return Option.Some(this.variant.payload[0])
+  }
+
+  // ...
+}
+```
+
+```ts subtitle="matchEnum 的实现"
+// src/match.ts
+
+import type { Enum } from './enum'
+
+/** @public */
+export type Branches<E extends Enum, R = any> = {
+  [K in keyof E['variants']]: (
+    ...args: InstanceType<E['variants'][K]>['payload']
+  ) => R
+}
+
+/** @public */
+export type MatchBranches<E extends Enum, R = any>
+  = Branches<E, R> | (Partial<Branches<E, R>> & { _: () => R })
+```
+
+```ts subtitle="matchEnum 的实现"
+// src/match.ts
+
+import type { Enum } from './enum'
+
+/** @public */
+export type Branches<E extends Enum, R = any> = {
+  [K in keyof E['variants']]: (
+    ...args: InstanceType<E['variants'][K]>['payload']
+  ) => R
+}
+
+/** @public */
+export type MatchBranches<E extends Enum, R = any>
+  = Branches<E, R> | (Partial<Branches<E, R>> & { _: () => R })
+
+/**
+ * @public
+ */
+export function matchEnum<
+  E extends Enum,
+  R = any
+> (e: E): (branches: MatchBranches<E, R>) => R {
+  const variants = e.variants
+  return function (branches) {
+    const names = Object.keys(variants)
+    for (let i = 0; i < names.length; ++i) {
+      if (e.variant instanceof variants[names[i]]) {
+        const handler = branches[names[i]]
+        if (typeof handler === 'function') {
+          return handler(...e.variant.payload)
+        } else {
+          return branches._()
+        }
+      }
+    }
+    return branches._()
+  }
+}
+```
+
+```ts subtitle="添加 TSDoc 文档"
+// src/match.ts
+
+import type { Enum } from './enum'
+
+/** @public */
+export type Branches<E extends Enum, R = any> = {
+  [K in keyof E['variants']]: (
+    ...args: InstanceType<E['variants'][K]>['payload']
+  ) => R
+}
+
+/** @public */
+export type MatchBranches<E extends Enum, R = any>
+  = Branches<E, R> | (Partial<Branches<E, R>> & { _: () => R })
+
+/**
+ * 类似 Rust 的 match
+ * @param e - 传枚举
+ *
+ * @example
+ * 这是简单的示例
+ * ```
+ * matchEnum(Option.Some(3))({
+ *   Some: (value) => {},
+ *   _: () => {}
+ * })
+ * ```
+ *
+ * @public
+ */
+export function matchEnum<
+  E extends Enum,
+  R = any
+> (e: E): (branches: MatchBranches<E, R>) => R {
+  const variants = e.variants
+  return function (branches) {
+    const names = Object.keys(variants)
+    for (let i = 0; i < names.length; ++i) {
+      if (e.variant instanceof variants[names[i]]) {
+        const handler = branches[names[i]]
+        if (typeof handler === 'function') {
+          return handler(...e.variant.payload)
+        } else {
+          return branches._()
+        }
+      }
+    }
+    return branches._()
+  }
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 生成 TypeScript 声明文件和 API 文档
+
+---
+
+<CodeSurfer>
+
+```json subtitle="api-extractor.json"
+{
+  "$schema": 
+    "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+  "mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts",
+  "bundledPackages": [],
+  "compiler": { "tsconfigFilePath": "<projectFolder>/tsconfig.json" },
+  "apiReport": { "enabled": false },
+  "docModel": { "enabled": true },
+  "dtsRollup": {
+    "enabled": true,
+    "untrimmedFilePath": "<projectFolder>/dist/option.d.ts"
+  },
+  "tsdocMetadata": {
+    "enabled": true,
+    "tsdocMetadataFilePath": "<projectFolder>/dist/tsdoc-metadata.json"
+  },
+  "messages": {
+    "compilerMessageReporting": {
+      "default": { "logLevel": "warning" }
+    },
+    "extractorMessageReporting": {
+      "default": { "logLevel": "warning" }
+    },
+    "tsdocMessageReporting": {
+      "default": { "logLevel": "warning" }
+    }
+  }
+}
+```
+
+```json subtitle="按顺序：TSC 编译到 lib / Rollup 打包个模块格式到 dist / APIExtractor 打包 .d.ts 到 dist / APIDocumenter 生成文档到 docs"
+{
+  "scripts": {
+    "build": "
+      tsc && \
+      rollup -c rollup.config.js && \
+      api-extractor run && \
+      api-documenter markdown -i ./temp -o ./docs/api",
+  },
+  "devDependencies": {
+    "@microsoft/api-documenter": "^7.16.0",
+    "@microsoft/api-extractor": "^7.19.5",
+    "@rollup/plugin-commonjs": "^21.0.3",
+    "@rollup/plugin-inject": "^4.0.4",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^13.1.3",
+    "@rollup/plugin-replace": "^4.0.0",
+    "rollup": "^2.70.1",
+    "rollup-plugin-terser": "^7.0.2",
+    "typescript": "~4.5.5"
+  }
+}
+```
+
+</CodeSurfer>
+
+---
+
+### 为什么不使用 @rollup/plugin-typescript ？
+
+生成 API 文档需要 API Extractor 提供 API JSON
+
+因为打包 .d.ts 的工作交给了 API Extractor
+
+而 API Extractor 需要 TSC 产出的 .d.ts
+
+既然无论如何都要用 TSC，所以让 Rollup 打包 TSC 产出的 JS 就行了
+
+没必要再用 @rollup/plugin-typescript 多编译一次 TS
+
+---
+
+# 添加 Jest 单元测试
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step>
+
+```js subtitle="jest.config.js"
+const path = require('path')
+
+/** @type {import('ts-jest/dist/types').InitialOptionsTsJest} */
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  globals: {
+    'ts-jest': {
+      tsconfig: path.join(__dirname, 'test/tsconfig.json')
+    }
+  }
+}
+
+// test/tsconfig.json
+// {
+//   "extends": "../tsconfig.base.json",
+//   "compilerOptions": {
+//     "target": "ES2019",
+//     "module": "CommonJS"
+//   },
+//   "include": [
+//     "./**/*.ts"
+//   ]
+// }
+```
+
+```ts subtitle="test/index.test.ts"
+// { "scripts": { "test": "jest" } }
+
+import { Option, matchEnum } from '..'
+
+const s = Option.Some(3)
+const n = Option.None<number>()
+
+test('unwrap', () => {
+  expect(s.unwrap()).toBe(3)
+  expect(() => {
+    n.unwrap()
+  }).toThrow(Error)
+})
+
+test('match', () => {
+  const result = matchEnum(s)({
+    Some: (value) => value * 2,
+    _: () => {}
+  })
+  expect(result).toBe(6)
+
+  const result2 = matchEnum(n)({
+    Some: (value) => value * 2,
+    None: () => { return 233 }
+  })
+  expect(result2).toBe(233)
+})
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 在 NPM 上发包
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="防止保命冲突，请加上你自己的 scope，注册好 npm 后即可 npm publish">
+
+```js
+// 项目根目录下添加 index.js
+
+// Node.js 的入口
+
+'use strict'
+
+if (process.env.NODE_ENV === 'production') {
+  module.exports = require('./dist/option.cjs.min.js')
+} else {
+  module.exports = require('./dist/option.cjs.js')
+}
+```
+
+```json 
+{
+  "name": "@tybys/rust-option",
+  "version": "1.0.0",
+  "description": "...",
+  "scripts": {
+    "build": "...",
+    "test": "jest"
+  },
+  "jsdelivr": "./dist/option.js",
+  "unpkg": "./dist/option.js",
+  "typings": "./dist/option.d.ts",
+  "browser": "./dist/option.esm-bundler.js"
+  "module": "./dist/option.esm-bundler.js",
+  "main": "./index.js",
+  "keywords": ["rust", "option"],
+  "author": "toyobayashi",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": { /* ... */ },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="CDN 服务商配置，指向 UMD 模块">
+
+```diff
+```
+
+```diff 9:10
+```
+
+</Step>
+
+<Step subtitle="包的声明文件，为 IDE 提供智能提示和 TS 类型检查">
+
+```diff
+```
+
+```diff 11
+```
+
+</Step>
+
+<Step subtitle="打包器入口，浏览器环境和其他环境">
+
+```diff
+```
+
+```diff 12:13
+```
+
+</Step>
+
+<Step subtitle="Node.js 入口，左侧根据 NODE_ENV 环境变量区分开发和生产 CommonJS 模块入口">
+
+```diff
+```
+
+```diff 14
+```
+
+</Step>
+
+<Step subtitle="指定 scope 是公开的">
+
+```diff
+```
+
+```diff 18:20
+```
+
+</Step>
+
+<Step subtitle="依赖 tslib 共享 TypeScript ES5 helper，减小包的尺寸">
+
+```diff
+```
+
+```diff 22:24
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 感谢观看
+
+演示的包并没有真正发布到 NPM
+
+源码：[https://github.com/toyobayashi/deck/tree/dev/decks/lib/package](https://github.com/toyobayashi/deck/tree/dev/decks/lib/package)
+
+如果对你有帮助可以一键三连

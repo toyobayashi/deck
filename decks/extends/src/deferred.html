@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deferred</title>
+</head>
+<body>
+  <script src="./class-util.js"></script>
+  <script src="./deferred.js"></script>
+  <script>
+    (function () {
+      var d = new Deferred()
+      console.log('e instanceof Deferred === ' + (d instanceof Deferred))
+      console.log('e instanceof Promise === ' + (d instanceof Promise))
+      console.log(d.resolve(1))
+      console.log(d.then(() => {}))
+      console.log(d)
+      console.log(Object.prototype.toString.call(d))
+    })()
+  </script>
+</body>
+</html>
