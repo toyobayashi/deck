@@ -1,0 +1,8 @@
+/docs
+/src
+/temp
+/types
+/.eslint*
+api-extractor.json
+rollup.config*
+tsconfig*

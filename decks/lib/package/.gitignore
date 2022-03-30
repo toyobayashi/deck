@@ -1,0 +1,7 @@
+package-lock.json
+/dist
+/temp
+/lib
+node_modules
+/types
+/docs
