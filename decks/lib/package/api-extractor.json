@@ -19,7 +19,7 @@
 
   "dtsRollup": {
     "enabled": true,
-    "untrimmedFilePath": "<projectFolder>/dist/<unscopedPackageName>.d.ts"
+    "untrimmedFilePath": "<projectFolder>/dist/option.d.ts"
   },
 
   "tsdocMetadata": {
@@ -37,6 +37,9 @@
     "extractorMessageReporting": {
       "default": {
         "logLevel": "warning"
+      },
+      "ae-forgotten-export": {
+        "logLevel": "none"
       }
     },
 

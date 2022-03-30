@@ -979,7 +979,7 @@ export function matchEnum<
   "docModel": { "enabled": true },
   "dtsRollup": {
     "enabled": true,
-    "untrimmedFilePath": "<projectFolder>/dist/<unscopedPackageName>.d.ts"
+    "untrimmedFilePath": "<projectFolder>/dist/option.d.ts"
   },
   "tsdocMetadata": {
     "enabled": true,
@@ -1027,15 +1027,29 @@ export function matchEnum<
 
 ---
 
+### 为什么不使用 @rollup/plugin-typescript ？
+
+生成 API 文档需要 API Extractor 提供 API JSON
+
+因为打包 .d.ts 的工作交给了 API Extractor
+
+而 API Extractor 需要 TSC 产出的 .d.ts
+
+既然无论如何都要用 TSC，所以让 Rollup 打包 TSC 产出的 JS 就行了
+
+没必要再用 @rollup/plugin-typescript 多编译一次 TS
+
+---
+
 # 添加 Jest 单元测试
 
 ---
 
-<CodeSurferColumns>
+<CodeSurferColumns sizes={[1,1]}>
 
-<Step subtitle="jest.config.js - test/index.test.ts">
+<Step>
 
-```js
+```js subtitle="jest.config.js"
 const path = require('path')
 
 /** @type {import('ts-jest/dist/types').InitialOptionsTsJest} */
@@ -1062,18 +1076,33 @@ module.exports = {
 // }
 ```
 
-```ts
-// npm test => jest
+```ts subtitle="test/index.test.ts"
+// { "scripts": { "test": "jest" } }
 
-import { Option } from '..'
+import { Option, matchEnum } from '..'
+
+const s = Option.Some(3)
+const n = Option.None<number>()
 
 test('unwrap', () => {
-  const s = Option.Some(3)
-  const n = Option.None<number>()
   expect(s.unwrap()).toBe(3)
   expect(() => {
     n.unwrap()
-  }).toThow(Error)
+  }).toThrow(Error)
+})
+
+test('match', () => {
+  const result = matchEnum(s)({
+    Some: (value) => value * 2,
+    _: () => {}
+  })
+  expect(result).toBe(6)
+
+  const result2 = matchEnum(n)({
+    Some: (value) => value * 2,
+    None: () => { return 233 }
+  })
+  expect(result2).toBe(233)
 })
 ```
 
@@ -1089,7 +1118,7 @@ test('unwrap', () => {
 
 <CodeSurferColumns>
 
-<Step subtitle="防止报名冲突，加上你自己的 scope，注册好 npm 后，npm publish">
+<Step subtitle="防止保命冲突，请加上你自己的 scope，注册好 npm 后即可 npm publish">
 
 ```js
 // 项目根目录下添加 index.js
@@ -1109,7 +1138,7 @@ if (process.env.NODE_ENV === 'production') {
 {
   "name": "@tybys/rust-option",
   "version": "1.0.0",
-  "description": "Rust Option for TypeScript/JavaScript",
+  "description": "...",
   "scripts": {
     "build": "...",
     "test": "jest"
@@ -1135,7 +1164,7 @@ if (process.env.NODE_ENV === 'production') {
 
 </Step>
 
-<Step subtitle="CDN 服务商配置">
+<Step subtitle="CDN 服务商配置，指向 UMD 模块">
 
 ```diff
 ```
@@ -1145,7 +1174,7 @@ if (process.env.NODE_ENV === 'production') {
 
 </Step>
 
-<Step subtitle="包的声明文件">
+<Step subtitle="包的声明文件，为 IDE 提供智能提示和 TS 类型检查">
 
 ```diff
 ```
@@ -1165,7 +1194,7 @@ if (process.env.NODE_ENV === 'production') {
 
 </Step>
 
-<Step subtitle="Node.js CommonJS 入口">
+<Step subtitle="Node.js 入口，左侧根据 NODE_ENV 环境变量区分开发和生产 CommonJS 模块入口">
 
 ```diff
 ```
@@ -1203,8 +1232,6 @@ if (process.env.NODE_ENV === 'production') {
 
 演示的包并没有真正发布到 NPM
 
-配置：[https://github.com/toyobayashi/deck/tree/dev/decks/lib/package](https://github.com/toyobayashi/deck/tree/dev/decks/lib/package)
-
-源码：[https://github.com/toyobayashi/rust-enum](https://github.com/toyobayashi/rust-enum)
+源码：[https://github.com/toyobayashi/deck/tree/dev/decks/lib/package](https://github.com/toyobayashi/deck/tree/dev/decks/lib/package)
 
 如果对你有帮助可以一键三连

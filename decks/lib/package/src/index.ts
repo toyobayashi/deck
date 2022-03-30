@@ -1,14 +1,23 @@
 /**
- * Rust Option for TypeScript/JavaScript
+ * Rust Enum
  *
  * @packageDocumentation
  */
 
-/** @public */
-export const dev = __DEV__
+import { Option } from './option'
 
 /** @public */
-export const version = __VERSION__
+export const Some = Option.Some
 
 /** @public */
-export const env = process.env.NODE_ENV
+export const None = Option.None
+
+export { Option }
+export type { IRefMut } from './option'
+export { OptionIterator } from './option'
+
+export { Enum, Variant } from './enum'
+export type { VariantParameter } from './enum'
+
+export { matchEnum } from './match'
+export type { MatchBranches, Branches } from './match'
