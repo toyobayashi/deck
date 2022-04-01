@@ -1,0 +1,1216 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# VSCode 源码如何实现 EventEmitter
+
+<Logo />
+
+VSCode 源码：src/vs/base/common/event.ts
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="先看用法，开发过 monaco 编辑器的话是不是很熟悉，与 Node.js 的 EventEmitter 不同">
+
+```ts
+class Document extends Disposable {
+  private readonly _onDidChange =
+    new Emitter<string>()
+
+  get onDidChange (): Event<string> {
+    // 相当于 on
+    return this._onDidChange.event
+  }
+
+  private _setValue (value: string) {
+    // ...
+    // 相当于 emit
+    this._onDidChange.fire(value)
+  }
+}
+```
+
+```ts
+const doc = new Document()
+const subscription = doc.onDidChange(
+  (value /* : string */) => {
+    // ...
+  }
+)
+// 移除本次添加的监听器
+subscription.dispose() 
+
+class MyComponent extends Disposable {
+  doc = new Document()
+
+  constructor () {
+    // 注册可销毁对象
+    // MyComponent dispose() 时
+    // 自动移除此监听器
+    this._register(this.doc.onDidChange(
+      (value /* : string */) => {
+        // ...
+      }
+    ))
+  }
+}
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# LinkedList
+
+用双向链表插入和删除事件回调函数比数组效率更高
+
+---
+
+<CodeSurfer>
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+```
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+
+class LinkedList<E> {
+  private _first: Node<E> = Node.Undefined
+  private _last: Node<E> = Node.Undefined
+  private _size: number = 0
+
+  get size(): number {
+    return this._size
+  }
+
+  isEmpty(): boolean {
+    return this._first === Node.Undefined
+  }
+}
+```
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+
+class LinkedList<E> {
+  private _first: Node<E> = Node.Undefined
+  private _last: Node<E> = Node.Undefined
+  private _size: number = 0
+
+  get size(): number {
+    return this._size
+  }
+
+  isEmpty(): boolean {
+    return this._first === Node.Undefined
+  }
+
+  clear(): void {
+    let node = this._first
+    while (node !== Node.Undefined) {
+      const next = node.next
+      node.prev = Node.Undefined
+      node.next = Node.Undefined
+      node = next
+    }
+
+    this._first = Node.Undefined
+    this._last = Node.Undefined
+    this._size = 0
+  }
+}
+```
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+
+class LinkedList<E> {
+  private _first: Node<E> = Node.Undefined
+  private _last: Node<E> = Node.Undefined
+  private _size: number = 0
+
+  get size(): number {
+    return this._size
+  }
+
+  isEmpty(): boolean {
+    return this._first === Node.Undefined
+  }
+
+  clear(): void {
+    let node = this._first
+    while (node !== Node.Undefined) {
+      const next = node.next
+      node.prev = Node.Undefined
+      node.next = Node.Undefined
+      node = next
+    }
+
+    this._first = Node.Undefined
+    this._last = Node.Undefined
+    this._size = 0
+  }
+
+  unshift(element: E): () => void {
+    return this._insert(element, false)
+  }
+
+  push(element: E): () => void {
+    return this._insert(element, true)
+  }
+
+  private _insert(element: E, atTheEnd: boolean): () => void {
+    const newNode = new Node(element)
+    if (this._first === Node.Undefined) {
+      this._first = newNode
+      this._last = newNode
+    } else if (atTheEnd) {
+      const oldLast = this._last!
+      this._last = newNode
+      newNode.prev = oldLast
+      oldLast.next = newNode
+    } else {
+      const oldFirst = this._first
+      this._first = newNode
+      newNode.next = oldFirst
+      oldFirst.prev = newNode
+    }
+    this._size += 1
+    let didRemove = false
+    return () => {
+      if (!didRemove) {
+        didRemove = true
+        this._remove(newNode)
+      }
+    }
+  }
+}
+```
+
+```diff 67:73 subtitle="重点：push 和 pop 返回的是函数，这个函数用来删除本次插入的节点"
+```
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+
+class LinkedList<E> {
+  private _first: Node<E> = Node.Undefined
+  private _last: Node<E> = Node.Undefined
+  private _size: number = 0
+
+  get size(): number {
+    return this._size
+  }
+
+  isEmpty(): boolean {
+    return this._first === Node.Undefined
+  }
+
+  clear(): void {
+    let node = this._first
+    while (node !== Node.Undefined) {
+      const next = node.next
+      node.prev = Node.Undefined
+      node.next = Node.Undefined
+      node = next
+    }
+
+    this._first = Node.Undefined
+    this._last = Node.Undefined
+    this._size = 0
+  }
+
+  unshift(element: E): () => void {
+    return this._insert(element, false)
+  }
+
+  push(element: E): () => void {
+    return this._insert(element, true)
+  }
+
+  private _insert(element: E, atTheEnd: boolean): () => void {
+    const newNode = new Node(element)
+    if (this._first === Node.Undefined) {
+      this._first = newNode
+      this._last = newNode
+    } else if (atTheEnd) {
+      const oldLast = this._last!
+      this._last = newNode
+      newNode.prev = oldLast
+      oldLast.next = newNode
+    } else {
+      const oldFirst = this._first
+      this._first = newNode
+      newNode.next = oldFirst
+      oldFirst.prev = newNode
+    }
+    this._size += 1
+    let didRemove = false
+    return () => {
+      if (!didRemove) {
+        didRemove = true
+        this._remove(newNode)
+      }
+    }
+  }
+
+  shift(): E | undefined {
+    if (this._first === Node.Undefined) {
+      return undefined
+    } else {
+      const res = this._first.element
+      this._remove(this._first)
+      return res
+    }
+  }
+
+  pop(): E | undefined {
+    if (this._last === Node.Undefined) {
+      return undefined
+    } else {
+      const res = this._last.element
+      this._remove(this._last)
+      return res
+    }
+  }
+
+  private _remove(node: Node<E>): void {
+    if (node.prev !== Node.Undefined && node.next !== Node.Undefined) {
+      const anchor = node.prev
+      anchor.next = node.next
+      node.next.prev = anchor
+    } else if (node.prev === Node.Undefined && node.next === Node.Undefined) {
+      this._first = Node.Undefined
+      this._last = Node.Undefined
+    } else if (node.next === Node.Undefined) {
+      this._last = this._last!.prev!
+      this._last.next = Node.Undefined
+    } else if (node.prev === Node.Undefined) {
+      this._first = this._first!.next!
+      this._first.prev = Node.Undefined
+    }
+    this._size -= 1
+  }
+}
+```
+
+```ts
+class Node<E> {
+  static readonly Undefined = new Node<any>(undefined)
+
+  element: E
+  next: Node<E>
+  prev: Node<E>
+
+  constructor(element: E) {
+    this.element = element
+    this.next = Node.Undefined
+    this.prev = Node.Undefined
+  }
+}
+
+class LinkedList<E> {
+  private _first: Node<E> = Node.Undefined
+  private _last: Node<E> = Node.Undefined
+  private _size: number = 0
+
+  get size(): number {
+    return this._size
+  }
+
+  isEmpty(): boolean {
+    return this._first === Node.Undefined
+  }
+
+  clear(): void {
+    let node = this._first
+    while (node !== Node.Undefined) {
+      const next = node.next
+      node.prev = Node.Undefined
+      node.next = Node.Undefined
+      node = next
+    }
+
+    this._first = Node.Undefined
+    this._last = Node.Undefined
+    this._size = 0
+  }
+
+  unshift(element: E): () => void {
+    return this._insert(element, false)
+  }
+
+  push(element: E): () => void {
+    return this._insert(element, true)
+  }
+
+  private _insert(element: E, atTheEnd: boolean): () => void {
+    const newNode = new Node(element)
+    if (this._first === Node.Undefined) {
+      this._first = newNode
+      this._last = newNode
+    } else if (atTheEnd) {
+      const oldLast = this._last!
+      this._last = newNode
+      newNode.prev = oldLast
+      oldLast.next = newNode
+    } else {
+      const oldFirst = this._first
+      this._first = newNode
+      newNode.next = oldFirst
+      oldFirst.prev = newNode
+    }
+    this._size += 1
+    let didRemove = false
+    return () => {
+      if (!didRemove) {
+        didRemove = true
+        this._remove(newNode)
+      }
+    }
+  }
+
+  shift(): E | undefined {
+    if (this._first === Node.Undefined) {
+      return undefined
+    } else {
+      const res = this._first.element
+      this._remove(this._first)
+      return res
+    }
+  }
+
+  pop(): E | undefined {
+    if (this._last === Node.Undefined) {
+      return undefined
+    } else {
+      const res = this._last.element
+      this._remove(this._last)
+      return res
+    }
+  }
+
+  private _remove(node: Node<E>): void {
+    if (node.prev !== Node.Undefined && node.next !== Node.Undefined) {
+      const anchor = node.prev
+      anchor.next = node.next
+      node.next.prev = anchor
+    } else if (node.prev === Node.Undefined && node.next === Node.Undefined) {
+      this._first = Node.Undefined
+      this._last = Node.Undefined
+    } else if (node.next === Node.Undefined) {
+      this._last = this._last!.prev!
+      this._last.next = Node.Undefined
+    } else if (node.prev === Node.Undefined) {
+      this._first = this._first!.next!
+      this._first.prev = Node.Undefined
+    }
+    this._size -= 1
+  }
+
+  *[Symbol.iterator](): Iterator<E> {
+    let node = this._first
+    while (node !== Node.Undefined) {
+      yield node.element
+      node = node.next
+    }
+  }
+}
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# Disposable
+
+可销毁对象，提供统一的、深层级的清理操作
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="IDisposable 接口"
+interface IDisposable {
+  dispose (): void
+}
+```
+
+```ts subtitle="DisposableStore 类用 Set 存储 IDisposable，其本身也是个 IDisposable"
+interface IDisposable {
+  dispose (): void
+}
+
+class DisposableStore implements IDisposable {
+  /** 存储将来要销毁的 IDisposable */
+  private _toDispose = new Set<IDisposable>()
+  /** 是否已销毁 */
+  private _isDisposed = false
+
+  public get isDisposed(): boolean {
+    return this._isDisposed
+  }
+}
+```
+
+```ts subtitle="批量销毁"
+interface IDisposable {
+  dispose (): void
+}
+
+class DisposableStore implements IDisposable {
+  /** 存储将来要销毁的 IDisposable */
+  private _toDispose = new Set<IDisposable>()
+  /** 是否已销毁 */
+  private _isDisposed = false
+
+  public get isDisposed(): boolean {
+    return this._isDisposed
+  }
+
+  /** 销毁所有已注册的 IDisposable 并标记已销毁 */
+  public dispose(): void {
+    if (this._isDisposed) return
+    this._isDisposed = true
+    this.clear()
+  }
+
+  /** 销毁所有已注册的 IDisposable 但不标记销毁，Store 还能继续用 */
+  public clear(): void {
+    try {
+      for (const d of this._toDispose) {
+        d.dispose()
+      }
+    } finally {
+      this._toDispose.clear()
+    }
+  }
+}
+```
+
+```ts subtitle="注册 IDisposable"
+interface IDisposable {
+  dispose (): void
+}
+
+class DisposableStore implements IDisposable {
+  /** 存储将来要销毁的 IDisposable */
+  private _toDispose = new Set<IDisposable>()
+  /** 是否已销毁 */
+  private _isDisposed = false
+
+  public get isDisposed(): boolean {
+    return this._isDisposed
+  }
+
+  /** 销毁所有已注册的 IDisposable 并标记已销毁 */
+  public dispose(): void {
+    if (this._isDisposed) return
+    this._isDisposed = true
+    this.clear()
+  }
+
+  /** 销毁所有已注册的 IDisposable 但不标记销毁，Store 还能继续用 */
+  public clear(): void {
+    try {
+      for (const d of this._toDispose) {
+        d.dispose()
+      }
+    } finally {
+      this._toDispose.clear()
+    }
+  }
+
+  public add<T extends IDisposable>(o: T): T {
+    if (!o) return o
+    if ((o as unknown as DisposableStore) === this) {
+      throw new Error('Cannot register a disposable on itself!')
+    }
+
+    if (!this._isDisposed) {
+      this._toDispose.add(o)
+    }
+
+    return o
+  }
+}
+```
+
+```ts subtitle="Disposable 抽象类中带一个 DisposableStore，派生类可以注册可销毁对象，自身销毁时也销毁自己注册的可销毁对象，可形成深层依赖销毁链"
+interface IDisposable {
+  dispose (): void
+}
+
+class DisposableStore implements IDisposable {
+  /** 存储将来要销毁的 IDisposable */
+  private _toDispose = new Set<IDisposable>()
+  /** 是否已销毁 */
+  private _isDisposed = false
+
+  public get isDisposed(): boolean {
+    return this._isDisposed
+  }
+
+  /** 销毁所有已注册的 IDisposable 并标记已销毁 */
+  public dispose(): void {
+    if (this._isDisposed) return
+    this._isDisposed = true
+    this.clear()
+  }
+
+  /** 销毁所有已注册的 IDisposable 但不标记销毁，Store 还能继续用 */
+  public clear(): void {
+    try {
+      for (const d of this._toDispose) {
+        d.dispose()
+      }
+    } finally {
+      this._toDispose.clear()
+    }
+  }
+
+  public add<T extends IDisposable>(o: T): T {
+    if (!o) return o
+    if ((o as unknown as DisposableStore) === this) {
+      throw new Error('Cannot register a disposable on itself!')
+    }
+
+    if (!this._isDisposed) {
+      this._toDispose.add(o)
+    }
+
+    return o
+  }
+}
+
+abstract class Disposable implements IDisposable {
+  protected readonly _store = new DisposableStore()
+
+  public dispose(): void {
+    this._store.dispose()
+  }
+
+  protected _register<T extends IDisposable>(o: T): T {
+    if ((o as unknown as Disposable) === this) {
+      throw new Error('Cannot register a disposable on itself!')
+    }
+    return this._store.add(o)
+  }
+}
+```
+
+```ts subtitle="SafeDisposable 的 dispose 函数可以设置，并且只会调用一次"
+interface IDisposable {
+  dispose (): void
+}
+
+class DisposableStore implements IDisposable {
+  /** 存储将来要销毁的 IDisposable */
+  private _toDispose = new Set<IDisposable>()
+  /** 是否已销毁 */
+  private _isDisposed = false
+
+  public get isDisposed(): boolean {
+    return this._isDisposed
+  }
+
+  /** 销毁所有已注册的 IDisposable 并标记已销毁 */
+  public dispose(): void {
+    if (this._isDisposed) return
+    this._isDisposed = true
+    this.clear()
+  }
+
+  /** 销毁所有已注册的 IDisposable 但不标记销毁，Store 还能继续用 */
+  public clear(): void {
+    try {
+      for (const d of this._toDispose) {
+        d.dispose()
+      }
+    } finally {
+      this._toDispose.clear()
+    }
+  }
+
+  public add<T extends IDisposable>(o: T): T {
+    if (!o) return o
+    if ((o as unknown as DisposableStore) === this) {
+      throw new Error('Cannot register a disposable on itself!')
+    }
+
+    if (!this._isDisposed) {
+      this._toDispose.add(o)
+    }
+
+    return o
+  }
+}
+
+abstract class Disposable implements IDisposable {
+  protected readonly _store = new DisposableStore()
+
+  public dispose(): void {
+    this._store.dispose()
+  }
+
+  protected _register<T extends IDisposable>(o: T): T {
+    if ((o as unknown as Disposable) === this) {
+      throw new Error('Cannot register a disposable on itself!')
+    }
+    return this._store.add(o)
+  }
+}
+
+class SafeDisposable implements IDisposable {
+  dispose: () => void = () => {}
+  unset: () => void = () => {}
+  isset: () => boolean = () => false
+
+  set(fn: Function) {
+    let callback: Function | undefined = fn
+    this.unset = () => callback = undefined
+    this.isset = () => callback !== undefined
+    this.dispose = () => {
+      if (callback) {
+        callback()
+        callback = undefined
+      }
+    }
+    return this
+  }
+}
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# Emitter
+
+事件发射器
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="Event 接口类似 on 函数，但返回是 Listener 的 subscription"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+```
+
+```ts subtitle="Emitter 类"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+
+interface EmitterOptions {
+  onFirstListenerAdd?: Function
+  onFirstListenerDidAdd?: Function
+  onListenerDidAdd?: Function
+  onLastListenerRemove?: Function
+}
+
+class Emitter<T> {
+  private readonly _options?: EmitterOptions
+  private _disposed: boolean = false
+  private _event?: Event<T>
+  private _deliveryQueue?: LinkedList<[Listener<T>, T]>
+  protected _listeners?: LinkedList<Listener<T>>
+
+  constructor(options?: EmitterOptions) {
+    this._options = options
+  }
+
+  hasListeners(): boolean {
+    if (!this._listeners) return false
+    return (!this._listeners.isEmpty())
+  }
+}
+```
+
+```ts 31:35,41:48 subtitle="dispose"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+
+interface EmitterOptions {
+  onFirstListenerAdd?: Function
+  onFirstListenerDidAdd?: Function
+  onListenerDidAdd?: Function
+  onLastListenerRemove?: Function
+}
+
+class Emitter<T> {
+  private readonly _options?: EmitterOptions
+  private _disposed: boolean = false
+  private _event?: Event<T>
+  private _deliveryQueue?: LinkedList<[Listener<T>, T]>
+  protected _listeners?: LinkedList<Listener<T>>
+
+  constructor(options?: EmitterOptions) {
+    this._options = options
+  }
+
+  dispose() {
+    if (this._disposed) return
+    this._disposed = true
+    if (this._listeners) this._listeners.clear()
+    this._deliveryQueue?.clear()
+    this._options?.onLastListenerRemove?.()
+  }
+
+  hasListeners(): boolean {
+    if (!this._listeners) return false
+    return (!this._listeners.isEmpty())
+  }
+}
+```
+
+```ts subtitle="event getter 懒创建 Event<T>"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+
+interface EmitterOptions {
+  onFirstListenerAdd?: Function
+  onFirstListenerDidAdd?: Function
+  onListenerDidAdd?: Function
+  onLastListenerRemove?: Function
+}
+
+class Emitter<T> {
+  private readonly _options?: EmitterOptions
+  private _disposed: boolean = false
+  private _event?: Event<T>
+  private _deliveryQueue?: LinkedList<[Listener<T>, T]>
+  protected _listeners?: LinkedList<Listener<T>>
+
+  constructor(options?: EmitterOptions) {
+    this._options = options
+  }
+
+  get event(): Event<T> {
+    if (this._event) return this._event
+    this._event = (
+      callback: (e: T) => any,
+      thisArgs?: any,
+      disposables?: IDisposable[] | DisposableStore
+    ) => {
+      if (!this._listeners) this._listeners = new LinkedList()
+
+      const firstListener = this._listeners.isEmpty()
+      if (firstListener && this._options?.onFirstListenerAdd) {
+        this._options.onFirstListenerAdd(this)
+      }
+
+      const listener = new Listener(callback, thisArgs, undefined)
+      const removeListener = this._listeners.push(listener)
+      if (firstListener && this._options?.onFirstListenerDidAdd) {
+        this._options.onFirstListenerDidAdd(this)
+      }
+      if (this._options?.onListenerDidAdd) {
+        this._options.onListenerDidAdd(this, callback, thisArgs)
+      }
+    }
+    return this._event
+  }
+
+  dispose() {
+    if (this._disposed) return
+    this._disposed = true
+    if (this._listeners) this._listeners.clear()
+    this._deliveryQueue?.clear()
+    this._options?.onLastListenerRemove?.()
+  }
+
+  hasListeners(): boolean {
+    if (!this._listeners) return false
+    return (!this._listeners.isEmpty())
+  }
+}
+```
+
+```ts 55:56,63:82 subtitle="set 返回 listener.subscription 本身，调用 dispose 会从链表中删除当前添加的监听器"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+
+interface EmitterOptions {
+  onFirstListenerAdd?: Function
+  onFirstListenerDidAdd?: Function
+  onListenerDidAdd?: Function
+  onLastListenerRemove?: Function
+}
+
+class Emitter<T> {
+  private readonly _options?: EmitterOptions
+  private _disposed: boolean = false
+  private _event?: Event<T>
+  private _deliveryQueue?: LinkedList<[Listener<T>, T]>
+  protected _listeners?: LinkedList<Listener<T>>
+
+  constructor(options?: EmitterOptions) {
+    this._options = options
+  }
+
+  get event(): Event<T> {
+    if (this._event) return this._event
+    this._event = (
+      callback: (e: T) => any,
+      thisArgs?: any,
+      disposables?: IDisposable[] | DisposableStore
+    ) => {
+      if (!this._listeners) this._listeners = new LinkedList()
+
+      const firstListener = this._listeners.isEmpty()
+      if (firstListener && this._options?.onFirstListenerAdd) {
+        this._options.onFirstListenerAdd(this)
+      }
+
+      const listener = new Listener(callback, thisArgs, undefined)
+      const removeListener = this._listeners.push(listener)
+      if (firstListener && this._options?.onFirstListenerDidAdd) {
+        this._options.onFirstListenerDidAdd(this)
+      }
+      if (this._options?.onListenerDidAdd) {
+        this._options.onListenerDidAdd(this, callback, thisArgs)
+      }
+      // set 返回 listener.subscription 本身
+      // 调用 dispose 会从链表中删除当前添加的监听器
+      const result = listener.subscription.set(() => {
+        if (this._disposed) return
+        removeListener()
+        if (this._options && this._options.onLastListenerRemove) {
+          const hasListeners = (this._listeners && !this._listeners.isEmpty())
+          if (!hasListeners) {
+            this._options.onLastListenerRemove(this)
+          }
+        }
+      })
+
+      if (disposables instanceof DisposableStore) {
+        disposables.add(result)
+      } else if (Array.isArray(disposables)) {
+        disposables.push(result)
+      }
+
+      return result
+    }
+    return this._event
+  }
+
+  dispose() {
+    if (this._disposed) return
+    this._disposed = true
+    if (this._listeners) this._listeners.clear()
+    this._deliveryQueue?.clear()
+    this._options?.onLastListenerRemove?.()
+  }
+
+  hasListeners(): boolean {
+    if (!this._listeners) return false
+    return (!this._listeners.isEmpty())
+  }
+}
+```
+
+```ts subtitle="fire 类似 emit"
+interface Event<T> {
+  (
+    listener: (e: T) => any,
+    thisArgs?: any,
+    disposables?: IDisposable[] | DisposableStore
+  ): IDisposable
+}
+
+class Listener<T> {
+  readonly subscription = new SafeDisposable()
+
+  constructor(
+    readonly callback: (e: T) => void,
+    readonly callbackThis: any | undefined,
+    readonly stack: Stacktrace | undefined
+  ) { }
+
+  invoke(e: T) {
+    this.callback.call(this.callbackThis, e)
+  }
+}
+
+interface EmitterOptions {
+  onFirstListenerAdd?: Function
+  onFirstListenerDidAdd?: Function
+  onListenerDidAdd?: Function
+  onLastListenerRemove?: Function
+}
+
+class Emitter<T> {
+  private readonly _options?: EmitterOptions
+  private _disposed: boolean = false
+  private _event?: Event<T>
+  private _deliveryQueue?: LinkedList<[Listener<T>, T]>
+  protected _listeners?: LinkedList<Listener<T>>
+
+  constructor(options?: EmitterOptions) {
+    this._options = options
+  }
+
+  get event(): Event<T> {
+    if (this._event) return this._event
+    this._event = (
+      callback: (e: T) => any,
+      thisArgs?: any,
+      disposables?: IDisposable[] | DisposableStore
+    ) => {
+      if (!this._listeners) this._listeners = new LinkedList()
+
+      const firstListener = this._listeners.isEmpty()
+      if (firstListener && this._options?.onFirstListenerAdd) {
+        this._options.onFirstListenerAdd(this)
+      }
+
+      const listener = new Listener(callback, thisArgs, undefined)
+      const removeListener = this._listeners.push(listener)
+      if (firstListener && this._options?.onFirstListenerDidAdd) {
+        this._options.onFirstListenerDidAdd(this)
+      }
+      if (this._options?.onListenerDidAdd) {
+        this._options.onListenerDidAdd(this, callback, thisArgs)
+      }
+      // set 返回 listener.subscription 本身
+      // 调用 dispose 会从链表中删除当前添加的监听器
+      const result = listener.subscription.set(() => {
+        if (this._disposed) return
+        removeListener()
+        if (this._options && this._options.onLastListenerRemove) {
+          const hasListeners = (this._listeners && !this._listeners.isEmpty())
+          if (!hasListeners) {
+            this._options.onLastListenerRemove(this)
+          }
+        }
+      })
+
+      if (disposables instanceof DisposableStore) {
+        disposables.add(result)
+      } else if (Array.isArray(disposables)) {
+        disposables.push(result)
+      }
+
+      return result
+    }
+    return this._event
+  }
+
+  fire(event: T): void {
+    if (!this._listeners) return
+    if (!this._deliveryQueue) {
+      this._deliveryQueue = new LinkedList()
+    }
+
+    for (let listener of this._listeners) {
+      this._deliveryQueue.push([listener, event])
+    }
+
+    while (this._deliveryQueue.size > 0) {
+      const [listener, event] = this._deliveryQueue.shift()!
+      try {
+        listener.invoke(event)
+      } catch (e) {
+        // ...
+      }
+    }
+  }
+
+  dispose() {
+    if (this._disposed) return
+    this._disposed = true
+    if (this._listeners) this._listeners.clear()
+    this._deliveryQueue?.clear()
+    this._options?.onLastListenerRemove?.()
+  }
+
+  hasListeners(): boolean {
+    if (!this._listeners) return false
+    return (!this._listeners.isEmpty())
+  }
+}
+```
+
+```diff 41:100
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+源码：microsoft/vscode/blob/1.66.0/src/vs/base/common/event.ts
+
+所属 NPM Package：monaco-editor-core
+
+如果对你有帮助可以一键三连
