@@ -1,0 +1,427 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+import "prismjs/components/prism-cpp"
+
+export const theme = customTheme
+
+# C++ 模板参数类型与 auto 类型推导
+
+<Logo />
+
+模板参数类型与 auto 类型和你想的是一样的吗？
+
+---
+
+# 本期内容
+
+- 值形参
+- 左值引用形参
+- 指针形参
+- 右值引用形参
+- 数组作为实参与函数作为实参
+- 初始化列表
+- 完美转发
+
+---
+
+# 值形参
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="函数模板，形参是值类型"
+template <typename T>
+void Fn1(T param) { /* ... */ }
+```
+
+```cpp subtitle="忽略 & 和 const。但传递指针时，保留指针指向内容的 & 和const"
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+void ValueParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+  const char* const cstr = "static string";
+
+  Fn1(v);     // void Fn1(int)
+  Fn1(cv);    // void Fn1(int)
+  Fn1(cr);    // void Fn1(int)
+  Fn1(cstr);  // void Fn1(const char*)
+}
+```
+
+```cpp 5:8,15:18 subtitle="auto 同理"
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+void ValueParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+  const char* const cstr = "static string";
+
+  Fn1(v);     // void Fn1(int)
+  Fn1(cv);    // void Fn1(int)
+  Fn1(cr);    // void Fn1(int)
+  Fn1(cstr);  // void Fn1(const char*)
+
+  auto a1 = v;     // int a1
+  auto a2 = cv;    // int a2
+  auto a3 = cr;    // int a3
+  auto a4 = cstr;  // const char* a4
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 左值引用形参
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="函数模板，形参是左值引用"
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T>
+void Fn3(const T& param) { /* ... */ }
+```
+
+```cpp subtitle="保留引用类型的 const"
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T>
+void Fn3(const T& param) { /* ... */ }
+
+void LRefParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+
+  Fn2(v);   // void Fn2(int&)
+  Fn2(cv);  // void Fn2(const int&)
+  Fn2(cr);  // void Fn2(const int&)
+
+  Fn3(v);   // void Fn3(const int&)
+  Fn3(cv);  // void Fn3(const int&)
+  Fn3(cr);  // void Fn3(const int&)
+}
+```
+
+```cpp 8:10,20:27 subtitle="auto 同理"
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T>
+void Fn3(const T& param) { /* ... */ }
+
+void LRefParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+
+  Fn2(v);   // void Fn2(int&)
+  Fn2(cv);  // void Fn2(const int&)
+  Fn2(cr);  // void Fn2(const int&)
+
+  Fn3(v);   // void Fn3(const int&)
+  Fn3(cv);  // void Fn3(const int&)
+  Fn3(cr);  // void Fn3(const int&)
+
+  auto& a1 = v;         // int& a1
+  auto& a2 = cv;        // const int& a2
+  auto& a3 = cr;        // const int& a3
+
+  const auto& a4 = v;   // const int& a4
+  const auto& a5 = cv;  // const int& a5
+  const auto& a6 = cr;  // const int& a6
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 指针形参
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="函数模板，形参是指针"
+template <typename T>
+void Fn4(T* param) { /* ... */ }
+
+template <typename T>
+void Fn5(const T* param) { /* ... */ }
+```
+
+```cpp subtitle="保留指针指向内容的 const"
+template <typename T>
+void Fn4(T* param) { /* ... */ }
+
+template <typename T>
+void Fn5(const T* param) { /* ... */ }
+
+void PointerParam() {
+  int v = 0;
+  const int* cp = &v;
+
+  Fn4(&v);  // void Fn4(int*)
+  Fn4(cp);  // void Fn4(const int*)
+
+  Fn5(&v);  // void Fn5(const int*)
+  Fn5(cp);  // void Fn5(const int*)
+}
+```
+
+```cpp 8:9,17:21 subtitle="auto 同理"
+template <typename T>
+void Fn4(T* param) { /* ... */ }
+
+template <typename T>
+void Fn5(const T* param) { /* ... */ }
+
+void PointerParam() {
+  int v = 0;
+  const int* cp = &v;
+
+  Fn4(&v);  // void Fn4(int*)
+  Fn4(cp);  // void Fn4(const int*)
+
+  Fn5(&v);  // void Fn5(const int*)
+  Fn5(cp);  // void Fn5(const int*)
+
+  auto* a1 = &v;        // int* a1
+  auto* a2 = cp;        // const int* a2
+
+  const auto* a3 = &v;  // const int* a3
+  const auto* a4 = cp;  // const int* a4
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 右值引用形参
+
+---
+
+<CodeSurfer>
+
+```cpp subtitle="函数模板，形参是 “右值引用” （转发引用）"
+template <typename T>
+void Fn6(T&& param) { /* ... */ }
+```
+
+```cpp subtitle="保留引用类型的 const，只有 && + && = &&，否则都是 &"
+template <typename T>
+void Fn6(T&& param) { /* ... */ }
+
+void RRefParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+
+  Fn6(v);   // void Fn6(int&)
+  Fn6(cv);  // void Fn6(const int&)
+  Fn6(cr);  // void Fn6(const int&)
+  Fn6(0);   // void Fn6(int&&)
+}
+```
+
+```cpp 5:7,14:18 subtitle="auto 同理"
+template <typename T>
+void Fn6(T&& param) { /* ... */ }
+
+void RRefParam() {
+  int v = 0;
+  const int cv = v;
+  const int& cr = cv;
+
+  Fn6(v);   // void Fn6(int&)
+  Fn6(cv);  // void Fn6(const int&)
+  Fn6(cr);  // void Fn6(const int&)
+  Fn6(0);   // void Fn6(int&&)
+
+  auto&& a1 = v;   // int& a1
+  auto&& a2 = cv;  // const int& a2
+  auto&& a3 = cr;  // const int& a3
+  auto&& a4 = 0;   // int&& a4
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 数组作为实参与函数作为实参
+
+---
+
+<CodeSurfer>
+
+```cpp
+#include <cstddef>
+#include <array>
+
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T, std::size_t N>
+constexpr std::size_t Fn7(T (&param)[N]) noexcept {
+  return N;
+}
+```
+
+```cpp 4:26
+#include <cstddef>
+#include <array>
+
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T, std::size_t N>
+constexpr std::size_t Fn7(T (&param)[N]) noexcept {
+  return N;
+}
+
+void ArrayArgument() {
+  const char str[] = "Hello world!";
+
+  Fn1(str);  // void Fn1(const char*)
+  Fn2(str);  // void Fn2(const char (&)[13])
+
+  auto a1 = str;   // const char* a1
+  auto& a2 = str;  // const char (&a2)[13]
+
+  // constexpr std::size_t Fn7(const char (&)[13])
+  constexpr std::size_t arr_size = Fn7(str);
+}
+```
+
+```cpp 4:8,15,29:33
+#include <cstddef>
+#include <array>
+
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+template <typename T>
+void Fn2(T& param) { /* ... */ }
+
+template <typename T, std::size_t N>
+constexpr std::size_t Fn7(T (&param)[N]) noexcept {
+  return N;
+}
+
+void F(int, double) { /* ... */ }
+
+void ArrayArgument() {
+  const char str[] = "Hello world!";
+
+  Fn1(str);  // void Fn1(const char*)
+  Fn2(str);  // void Fn2(const char (&)[13])
+
+  auto a1 = str;   // const char* a1
+  auto& a2 = str;  // const char (&a2)[13]
+
+  // constexpr std::size_t Fn7(const char (&)[13])
+  constexpr std::size_t arr_size = Fn7(str);
+
+  Fn1(F);  // void F1(void (*)(int, double))
+  Fn2(F);  // void F2(void (&)(int, double))
+
+  auto a3 = F;   // void (*a3)(int, double)
+  auto& a4 = F;  // void (&a4)(int, double)
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 初始化列表
+
+---
+
+<CodeSurfer>
+
+```cpp
+#include <initializer_list>
+
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+template <typename T>
+void Fn8(std::initializer_list<T> param) {
+  /* ... */
+}
+```
+
+```cpp subtitle="auto 尝试把大括号字面量推导为 std::initializer_list，而模板推导不这样做"
+#include <initializer_list>
+
+template <typename T>
+void Fn1(T param) { /* ... */ }
+
+template <typename T>
+void Fn8(std::initializer_list<T> param) {
+  /* ... */
+}
+
+void InitializerList() {
+  int v1 = 1;       // C++98 OK
+  int v2(1);        // C++98 OK
+  int v3 = { 1 };   // C++11 OK
+  int v4{ 1 };      // C++11 OK
+
+  auto a1 = 1;      // int a1
+  auto a2(1);       // int a2
+  auto a3 = { 1 };  // std::initializer_list<int> a3
+  auto a4{ 1 };     // std::initializer_list<int> a4
+
+  auto list = { 1, 2, 3 };  // std::initializer_list<int> list
+  // Fn1({ 1, 2, 3 });      // 编译不通过
+  Fn1(list);                // void Fn1(std::initializer_list<int>)
+  Fn8({ 1, 2, 3 });         // void Fn8(std::initializer_list<int>)
+}
+```
+
+```cpp subtitle="但是 auto 返回值或 lambda 的 auto 使用模板类型推导，所以以上代码不能编译通过"
+#include <vector>
+
+auto CreateList() {
+  return { 1, 2, 3 };  // 无法推导
+}
+
+int main() {
+  std::vector<int> vec;
+  auto set_vec = [&vec](const auto& value) {
+    vec = value;
+  };
+  set_vec({ 1, 2, 3 });  // 无法推导
+}
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+如果对你有帮助可以一键三连
