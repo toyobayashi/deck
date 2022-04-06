@@ -9,8 +9,6 @@ export const theme = customTheme
 
 <Logo />
 
-模板参数类型与 auto 类型和你想的是一样的吗？
-
 ---
 
 # 本期内容
@@ -219,12 +217,16 @@ void PointerParam() {
 
 ```cpp subtitle="函数模板，形参是 “右值引用” （转发引用）"
 template <typename T>
-void Fn6(T&& param) { /* ... */ }
+void Fn6(T&& param) {
+  /* ... */
+}
 ```
 
 ```cpp subtitle="保留引用类型的 const，只有 && + && = &&，否则都是 &"
 template <typename T>
-void Fn6(T&& param) { /* ... */ }
+void Fn6(T&& param) {
+  /* ... */
+}
 
 void RRefParam() {
   int v = 0;
@@ -238,9 +240,11 @@ void RRefParam() {
 }
 ```
 
-```cpp 5:7,14:18 subtitle="auto 同理"
+```cpp 7:9,16:20 subtitle="auto 同理"
 template <typename T>
-void Fn6(T&& param) { /* ... */ }
+void Fn6(T&& param) {
+  /* ... */
+}
 
 void RRefParam() {
   int v = 0;
@@ -259,6 +263,61 @@ void RRefParam() {
 }
 ```
 
+```cpp subtitle="右值引用是左值！"
+#include <iostream>
+
+void TellMeRef(int& a) {
+  std::cout << "TellMeRef(int&)\n";
+}
+
+void TellMeRef(int&& a) {
+  std::cout << "TellMeRef(int&&)\n";
+}
+
+template <typename T>
+void Fn6(T&& param) {
+  TellMeRef(param);
+}
+
+void RRefParam() {
+  int v = 0;
+
+  Fn6(v);   // void Fn6(int&)
+  // -> TellMeRef(int&)
+
+  Fn6(0);   // void Fn6(int&&)
+  // -> TellMeRef(int&)
+}
+```
+
+```cpp subtitle="std::forward<T> 完美转发"
+#include <iostream>
+#include <utility>
+
+void TellMeRef(int& a) {
+  std::cout << "TellMeRef(int&)\n";
+}
+
+void TellMeRef(int&& a) {
+  std::cout << "TellMeRef(int&&)\n";
+}
+
+template <typename T>
+void Fn6(T&& param) {
+  TellMeRef(std::forward<T>(param));
+}
+
+void RRefParam() {
+  int v = 0;
+
+  Fn6(v);   // void Fn6(int&)
+  // -> TellMeRef(int&)
+
+  Fn6(0);   // void Fn6(int&&)
+  // -> TellMeRef(int&&)
+}
+```
+
 </CodeSurfer>
 
 ---
@@ -271,7 +330,6 @@ void RRefParam() {
 
 ```cpp
 #include <cstddef>
-#include <array>
 
 template <typename T>
 void Fn1(T param) { /* ... */ }
@@ -287,7 +345,6 @@ constexpr std::size_t Fn7(T (&param)[N]) noexcept {
 
 ```cpp 4:26
 #include <cstddef>
-#include <array>
 
 template <typename T>
 void Fn1(T param) { /* ... */ }
@@ -316,7 +373,6 @@ void ArrayArgument() {
 
 ```cpp 4:8,15,29:33
 #include <cstddef>
-#include <array>
 
 template <typename T>
 void Fn1(T param) { /* ... */ }
