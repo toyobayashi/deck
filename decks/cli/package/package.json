@@ -1,0 +1,20 @@
+{
+  "name": "@tybys/mypack",
+  "version": "1.0.0",
+  "description": "Simple webpack cli",
+  "bin": {
+    "mypack": "./bin/mypack.js"
+  },
+  "main": "./index.js",
+  "keywords": ["webpack"],
+  "author": "toyobayashi",
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "dependencies": {
+    "@rushstack/ts-command-line": "^4.10.8"
+  },
+  "peerDependencies": {
+    "webpack": ">= 5.0.0",
+    "webpack-dev-server": ">= 4.0.0"
+  }
+}

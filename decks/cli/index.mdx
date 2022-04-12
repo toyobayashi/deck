@@ -1,0 +1,43 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# 如何编写 Node.js CLI 应用程序
+
+<Logo />
+
+---
+
+# 目标
+
+实现简易的 Webpack CLI
+
+- 起个名字，就叫 mypack 吧
+- mypack build 打包命令
+- mypack watch 监听命令
+- mypack serve 启动开发服务器
+- 参数：--config --entry --mode --target --progress --no-color
+
+---
+
+<CodeSurfer>
+
+```json file="./package/package.json" subtitle="package.json"
+```
+
+```diff 5:8,13:19 subtitle="指定 CLI 入口、包入口、webpack 作为 peerDependencies"
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+演示的包并没有真正发布到 NPM
+
+源码：[https://github.com/toyobayashi/deck/tree/dev/decks/lib/package](https://github.com/toyobayashi/deck/tree/dev/decks/lib/package)
+
+如果对你有帮助可以一键三连
