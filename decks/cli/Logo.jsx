@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import npm from './assets/npm.svg'
+import node from './assets/node.png'
 
 const style = {
   display: 'flex',
@@ -12,7 +12,7 @@ const style = {
 export default function () {
   return (
     <div style={style}>
-      <img src={npm} alt='webpack' width={500} />
+      <img src={node} alt='webpack' width={500} />
     </div>
   )
 }
