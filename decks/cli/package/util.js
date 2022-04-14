@@ -11,17 +11,11 @@ class PathResolver {
   }
 
   resolve (...args) {
-    if (!args.length) return path.resolve(this.context)
-    if (path.isAbsolute(args[0])) {
-      return path.join(...args)
-    }
-    return path.join(this.context, ...args)
+    return path.resolve(this.context, ...args)
   }
 }
 
-function getDefaultConfig (context, mode) {
-  const pr = new PathResolver(context)
-
+function getDefaultConfig (pr, mode) {
   return {
     entry: {
       app: pr.resolve('src/index')
@@ -32,7 +26,7 @@ function getDefaultConfig (context, mode) {
     },
     mode: mode,
     devtool: mode === 'development' ? 'eval-source-map' : false,
-    context,
+    context: pr.context,
     node: false,
     target: ['web', 'es5'],
     devServer: {
@@ -46,14 +40,14 @@ function getDefaultConfig (context, mode) {
   }
 }
 
-function readConfig (filePath, env) {
+function readConfig (filePath) {
   const r = typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require
   let mod = r(path.resolve(filePath))
   if (mod.__esModule) {
     mod = mod.default
   }
   if (typeof mod === 'function') {
-    return Promise.resolve(mod(env))
+    return Promise.resolve(mod())
   }
   return Promise.resolve(mod)
 }

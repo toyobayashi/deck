@@ -10,9 +10,9 @@ export const theme = customTheme
 
 ---
 
-# 目标
+## 目标
 
-实现简易的 Webpack CLI
+使用 @rushstack/ts-command-line 实现简易的 Webpack CLI
 
 - 起个名字，就叫 mypack 吧
 - mypack build 打包命令
@@ -30,6 +30,67 @@ export const theme = customTheme
 ```diff 5:8,13:19 subtitle="指定 CLI 入口、包入口、webpack 作为 peerDependencies"
 ```
 
+```diff
+
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```js file="./step/1.js" subtitle="bin/mypack.js 指定用 node 运行此脚本文件，npm link 可生成全局快捷方式"
+```
+
+```js file="./step/2.js" subtitle="async main 函数传入命令行参数"
+```
+
+```js file="./step/3.js" subtitle="写一个 PathResolver 类方便从传进的 context 解析路径"
+```
+
+```js file="./step/4.js" subtitle="mypack --version 输出版本号"
+```
+
+```js file="./step/5.js" subtitle="实例化 parser，添加 Action （子命令）"
+```
+
+```js 39:41,46:64 file="./step/6.js" subtitle="继承 CommandLineAction"
+```
+
+```js file="./step/7.js" subtitle="基类构造函数会调用 onDefineParameters，定义 --config 参数"
+```
+
+```js file="./step/8.js" subtitle="定义 --mode --entry 参数"
+```
+
+```js file="./step/9.js" subtitle="定义 --target --progress --no-color 参数"
+```
+
+```js file="./step/10.js" subtitle="解析 webpack 配置"
+```
+
+```diff 101,103 subtitle="没传配置文件就取默认配置"
+```
+
+```js file="./step/11.js" subtitle="读取配置文件"
+```
+
+```js file="./step/12.js" subtitle="获取默认配置"
+```
+
+```js file="./step/13.js" subtitle="mypack build，构造函数传配置项，在 onExecute 里写逻辑"
+```
+
+```js file="./step/14.js" subtitle="mypack watch，构造函数传配置项，在 onExecute 里写逻辑"
+```
+
+```js file="./step/15.js" subtitle="mypack serve，构造函数传配置项，在 onExecute 里写逻辑"
+```
+
+```diff
+```
+
 </CodeSurfer>
 
 ---
@@ -38,6 +99,6 @@ export const theme = customTheme
 
 演示的包并没有真正发布到 NPM
 
-源码：[https://github.com/toyobayashi/deck/tree/dev/decks/lib/package](https://github.com/toyobayashi/deck/tree/dev/decks/lib/package)
+源码：[https://github.com/toyobayashi/deck/tree/dev/decks/cli/package](https://github.com/toyobayashi/deck/tree/dev/decks/cli/package)
 
 如果对你有帮助可以一键三连

@@ -29,7 +29,7 @@ class ServeAction extends BaseAction {
     const compiler = webpack(config)
     const devServerOptions = config.devServer || {}
     const server = new WebpackDevServer(devServerOptions, compiler)
-    return server.start()
+    await server.start()
   }
 }
 

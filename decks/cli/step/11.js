@@ -1,13 +1,55 @@
-'use strict'
-Object.defineProperty(exports, '__esModule', { value: true })
+#!/usr/bin/env node
+
+const path = require('path')
+const Module = require('module')
+
+class PathResolver {
+  constructor (context) {
+    this.context = context || process.cwd()
+    this.require = Module.createRequire(
+      path.join(this.context, 'mod.js'))
+  }
+
+  resolve (...args) {
+    return path.resolve(this.context, ...args)
+  }
+}
+
+async function main (args) {
+  const pkg = require('./package.json')
+  const pr = new PathResolver()
+
+  if (args[0] === '-v' || args[0] === '--version') {
+    console.log(`mypack: v${pkg.version}`)
+    console.log(`webpack: v${pr.require('webpack').version}`)
+    return
+  }
+
+  const {
+    DynamicCommandLineParser
+  } = require('@rushstack/ts-command-line')
+
+  const commandLineParser = new DynamicCommandLineParser({
+    toolFilename: 'mypack',
+    toolDescription: `[v${pkg.version}] ${pkg.description}`
+  })
+
+  commandLineParser.addAction(new BuildAction(pr))
+  commandLineParser.addAction(new WatchAction(pr))
+  commandLineParser.addAction(new ServeAction(pr))
+
+  await commandLineParser.executeWithoutErrorHandling(args)
+}
 
 const {
   CommandLineAction
 } = require('@rushstack/ts-command-line')
 
-const { readConfig, getDefaultConfig } = require('../../util.js')
-
 class BaseAction extends CommandLineAction {
+  constructor (options) {
+    super(options)  // 基类构造函数调用 onDefineParameters
+  }
+
   onDefineParameters () {
     this._config = this.defineStringParameter({
       parameterLongName: '--config',
@@ -47,7 +89,6 @@ class BaseAction extends CommandLineAction {
     this._noColor = this.defineFlagParameter({
       parameterLongName: '--no-color',
       description: 'Disables any color on the console',
-      
       environmentVariable: 'MYPACK_NO_COLOR'
     })
   }
@@ -75,4 +116,34 @@ class BaseAction extends CommandLineAction {
   }
 }
 
-exports.BaseAction = BaseAction
+function readConfig (filePath) {
+  const r =
+    typeof __non_webpack_require__ !== 'undefined'
+      ? __non_webpack_require__
+      : require
+  let mod = r(path.resolve(filePath))
+  if (mod.__esModule) {
+    mod = mod.default
+  }
+  if (typeof mod === 'function') {
+    return Promise.resolve(mod())
+  }
+  return Promise.resolve(mod)
+}
+
+class BuildAction extends BaseAction {
+  // TODO
+}
+
+class WatchAction extends BaseAction {
+  // TODO
+}
+
+class ServeAction extends BaseAction {
+  // TODO
+}
+
+main(process.argv.slice(2)).catch(err => {
+  console.error(err)
+  process.exit(1)
+})
