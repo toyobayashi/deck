@@ -1,0 +1,499 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-c"
+import Logo from './Logo.jsx'
+import resultPng from './assets/result.png'
+import result2Png from './assets/result2.png'
+
+export const theme = customTheme
+
+# 实现 .NET 的 FileVersionInfo 类
+
+<Logo />
+
+获取 Windows 可执行文件 (.exe) 或动态链接库 (.dll) 中内置的版本资源信息
+
+---
+
+
+<CodeSurferColumns>
+
+<Step>
+
+```js subtitle="用法"
+const {
+  FileVersionInfo
+} = require('@tybys/windows-file-version-info')
+
+const info = FileVersionInfo.getVersionInfo(
+  'C:\\WINDOWS\\system32\\cmd.exe')
+
+console.log('ProductVersion: ' +
+  info.productVersion + '\n')
+console.log(info.toString())
+```
+
+<img src={resultPng} style={{width:'100%'}} />
+
+</Step>
+
+<Step>
+
+```js subtitle="用法"
+const {
+  FileVersionInfo
+} = require('@tybys/windows-file-version-info')
+
+const info = FileVersionInfo.getVersionInfo(
+  'C:\\WINDOWS\\system32\\cmd.exe')
+
+console.log('ProductVersion: ' +
+  info.productVersion + '\n')
+console.log(info.toString())
+
+console.log(info.toJSON())
+```
+
+<img src={result2Png} style={{width:'100%'}} />
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# C 语言调用 Windows API
+
+这次就不写 C++ 了
+
+---
+
+<CodeSurferColumns sizes={[3,4]}>
+
+<Step subtitle="file_version_info.h / file_version_info.c">
+
+```c file=./step/1-1.c
+```
+
+```c file=./step/1-2.c
+```
+
+</Step>
+
+<Step subtitle="构建 DLL 相关的预处理宏">
+
+```c file=./step/2-1.c
+```
+
+```diff
+```
+
+</Step>
+
+<Step subtitle="fvi 结构体保存版本资源">
+
+```c file=./step/3-1.c
+```
+
+```c file=./step/3-2.c
+```
+
+</Step>
+
+<Step subtitle="粗略的错误处理">
+
+```c file=./step/4-1.c
+```
+
+```c file=./step/4-2.c
+```
+
+</Step>
+
+<Step subtitle="读取文件获得 fvi 结构体">
+
+```c file=./step/5-1.c
+```
+
+```c file=./step/5-2.c
+```
+
+</Step>
+
+<Step subtitle="拷贝一份文件名保存起来">
+
+```diff 45
+```
+
+```c file=./step/6-2.c
+```
+
+</Step>
+
+<Step subtitle="GetFileVersionInfoSizeW 和 GetFileVersionInfoW 尝试读取版本资源块">
+
+```diff 45
+```
+
+```c file=./step/7-2.c
+```
+
+</Step>
+
+<Step subtitle="VerQueryValueW 尝试读取根节点信息和国际化翻译">
+
+```diff 45
+```
+
+```c file=./step/8-2.c
+```
+
+</Step>
+
+<Step subtitle="VerLanguageNameW 尝试读取语言信息">
+
+```diff 45
+```
+
+```c file=./step/9-2.c
+```
+
+</Step>
+
+<Step subtitle="释放 fvi 结构体内存">
+
+```c file=./step/10-1.c
+```
+
+```c file=./step/10-2.c
+```
+
+</Step>
+
+<Step subtitle="获取文件名">
+
+```c file=./step/11-1.c
+```
+
+```c file=./step/11-2.c
+```
+
+</Step>
+
+<Step subtitle="获取文件版本">
+
+```c file=./step/12-1.c
+```
+
+```c file=./step/12-2.c
+```
+
+</Step>
+
+<Step subtitle="获取产品版本">
+
+```c file=./step/13-1.c
+```
+
+```c file=./step/13-2.c
+```
+
+</Step>
+
+<Step subtitle="获取版本资源属性">
+
+```c file=./step/14-1.c
+```
+
+```c file=./step/14-2.c
+```
+
+</Step>
+
+<Step subtitle="获取语言">
+
+```c file=./step/15-1.c
+```
+
+```c file=./step/15-2.c
+```
+
+</Step>
+
+<Step subtitle="获取其它字符串属性值">
+
+```c file=./step/16-1.c
+```
+
+```c file=./step/16-2.c
+```
+
+</Step>
+
+<Step subtitle="获取其它字符串属性值">
+
+```diff 94:111
+```
+
+```c file=./step/17-2.c
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# Node-API C 语言绑定
+
+这次就不写 C++ 了
+
+---
+
+<CodeSurfer>
+
+```c file=./binding/1.c subtitle="模块初始化"
+```
+
+```c file=./binding/2.c subtitle="复制官方的 Node-API 函数调用宏，返回失败就在 JS 里扔 Error"
+```
+
+```c file=./binding/3.c subtitle="定义 FileVersionInfo 类，创建构造函数的持久引用，设置为模块实例绑定的数据"
+```
+
+```c file=./binding/4.c subtitle="导出函数 getVersionInfoInternal，静态方法稍后在 JS 中定义，会调用此函数"
+```
+
+```c 40:53,74[2:22] file=./binding/5.c subtitle="NAPI_EXPORT_FUNCTION 宏"
+```
+
+```c file=./binding/6.c subtitle="getVersionInfoInternal 接收文件路径字符串，类型校验在 JS 中做，native 层就不做了"
+```
+
+```c file=./binding/7.c subtitle="初始化 fvi_t 结构体指针，用 V8 External 包一下传进 FileVersionInfo 构造函数"
+```
+
+```c file=./binding/8.c subtitle="在构造函数中获取 External 中的 fvi_t 指针，与 this 绑定，this 被垃圾回收时调用 fvi_free"
+```
+
+```c file=./binding/9.c subtitle="宏生成字符串属性的 getter 函数"
+```
+
+```c file=./binding/10.c subtitle="宏生成文件版本号和产品版本号的 getter 函数"
+```
+
+```c file=./binding/11.c subtitle="宏生成版本资源属性的 getter 函数"
+```
+
+```c file=./binding/12.c subtitle="宏生成文件名和语言的 getter 函数"
+```
+
+```diff 224 subtitle="回到模块初始化函数中定义类的代码，用了一个 DEFINE_PROPERTIES 宏，定义类的原型"
+```
+
+```c file=./binding/13.c subtitle="DEFINE_PROPERTIES 宏，在原型上定义 getter 函数"
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# JavaScript 层
+
+---
+
+<CodeSurfer>
+
+```js subtitle="从原生模块重新导出 FileVersionInfo"
+'use strict'
+Object.defineProperty(exports, '__esModule', { value: true })
+
+const { EOL } = require('os')
+const { existsSync } = require('fs')
+const {
+  FileVersionInfo,
+  getVersionInfoInternal
+} = require('./dist/fvi.node')
+
+exports.FileVersionInfo = FileVersionInfo
+```
+
+```js subtitle="定义 getVersionInfo 静态方法，校验参数类型后再传给原生函数 getVersionInfoInternal"
+'use strict'
+Object.defineProperty(exports, '__esModule', { value: true })
+
+const { EOL } = require('os')
+const { existsSync } = require('fs')
+const {
+  FileVersionInfo,
+  getVersionInfoInternal
+} = require('./dist/fvi.node')
+
+Object.defineProperty(FileVersionInfo, 'getVersionInfo', {
+  configurable: true,
+  writable: true,
+  value (fileName) {
+    if (typeof fileName !== 'string') {
+      throw new TypeError('Expect string path')
+    }
+    if (!existsSync(fileName)) {
+      throw new Error('File is not found: ' + fileName)
+    }
+    return getVersionInfoInternal(fileName)
+  }
+})
+
+exports.FileVersionInfo = FileVersionInfo
+```
+
+```js subtitle="定义 toString 实例方法"
+'use strict'
+Object.defineProperty(exports, '__esModule', { value: true })
+
+const { EOL } = require('os')
+const { existsSync } = require('fs')
+const {
+  FileVersionInfo,
+  getVersionInfoInternal
+} = require('./dist/fvi.node')
+
+Object.defineProperty(FileVersionInfo, 'getVersionInfo', {
+  configurable: true,
+  writable: true,
+  value (fileName) {
+    if (typeof fileName !== 'string') {
+      throw new TypeError('Expect string path')
+    }
+    if (!existsSync(fileName)) {
+      throw new Error('File is not found: ' + fileName)
+    }
+    return getVersionInfoInternal(fileName)
+  }
+})
+
+Object.defineProperty(FileVersionInfo.prototype, 'toString', {
+  configurable: true,
+  writable: true,
+  value () {
+    return (
+      'File:             ' + this.fileName + EOL +
+      'InternalName:     ' + this.internalName + EOL +
+      'OriginalFilename: ' + this.originalFilename + EOL +
+      'FileVersion:      ' + this.fileVersion + EOL +
+      'FileDescription:  ' + this.fileDescription + EOL +
+      'Product:          ' + this.productName + EOL +
+      'ProductVersion:   ' + this.productVersion + EOL +
+      'Debug:            ' + this.isDebug + EOL +
+      'Patched:          ' + this.isPatched + EOL +
+      'PreRelease:       ' + this.isPreRelease + EOL +
+      'PrivateBuild:     ' + this.isPrivateBuild + EOL +
+      'SpecialBuild:     ' + this.isSpecialBuild + EOL +
+      'Language:         ' + this.language + EOL
+    )
+  }
+})
+
+exports.FileVersionInfo = FileVersionInfo
+```
+
+```js subtitle="定义 toJSON 实例方法，支持 JSON.stringify"
+'use strict'
+Object.defineProperty(exports, '__esModule', { value: true })
+
+const { EOL } = require('os')
+const { existsSync } = require('fs')
+const {
+  FileVersionInfo,
+  getVersionInfoInternal
+} = require('./dist/fvi.node')
+
+Object.defineProperty(FileVersionInfo, 'getVersionInfo', {
+  configurable: true,
+  writable: true,
+  value (fileName) {
+    if (typeof fileName !== 'string') {
+      throw new TypeError('Expect string path')
+    }
+    if (!existsSync(fileName)) {
+      throw new Error('File is not found: ' + fileName)
+    }
+    return getVersionInfoInternal(fileName)
+  }
+})
+
+Object.defineProperty(FileVersionInfo.prototype, 'toString', {
+  configurable: true,
+  writable: true,
+  value () {
+    return (
+      'File:             ' + this.fileName + EOL +
+      'InternalName:     ' + this.internalName + EOL +
+      'OriginalFilename: ' + this.originalFilename + EOL +
+      'FileVersion:      ' + this.fileVersion + EOL +
+      'FileDescription:  ' + this.fileDescription + EOL +
+      'Product:          ' + this.productName + EOL +
+      'ProductVersion:   ' + this.productVersion + EOL +
+      'Debug:            ' + this.isDebug + EOL +
+      'Patched:          ' + this.isPatched + EOL +
+      'PreRelease:       ' + this.isPreRelease + EOL +
+      'PrivateBuild:     ' + this.isPrivateBuild + EOL +
+      'SpecialBuild:     ' + this.isSpecialBuild + EOL +
+      'Language:         ' + this.language + EOL
+    )
+  }
+})
+
+Object.defineProperty(FileVersionInfo.prototype, 'toJSON', {
+  configurable: true,
+  writable: true,
+  value () {
+    return {
+      comments: this.comments,
+      companyName: this.companyName,
+      fileBuildPart: this.fileBuildPart,
+      fileDescription: this.fileDescription,
+      fileMajorPart: this.fileMajorPart,
+      fileMinorPart: this.fileMinorPart,
+      fileName: this.fileName,
+      filePrivatePart: this.filePrivatePart,
+      fileVersion: this.fileVersion,
+      internalName: this.internalName,
+      isDebug: this.isDebug,
+      isPatched: this.isPatched,
+      isPreRelease: this.isPreRelease,
+      isPrivateBuild: this.isPrivateBuild,
+      isSpecialBuild: this.isSpecialBuild,
+      language: this.language,
+      legalCopyright: this.legalCopyright,
+      legalTrademarks: this.legalTrademarks,
+      originalFilename: this.originalFilename,
+      privateBuild: this.privateBuild,
+      productBuildPart: this.productBuildPart,
+      productMajorPart: this.productMajorPart,
+      productMinorPart: this.productMinorPart,
+      productName: this.productName,
+      productPrivatePart: this.productPrivatePart,
+      productVersion: this.productVersion,
+      specialBuild: this.specialBuild
+    }
+  }
+})
+
+exports.FileVersionInfo = FileVersionInfo
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+源码：[https://github.com/toyobayashi/windows-file-version-info](https://github.com/toyobayashi/windows-file-version-info)
+
+如果对你有帮助可以一键三连
