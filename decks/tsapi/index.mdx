@@ -1,0 +1,194 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# 如何使用 TypeScript 编译器 API
+
+<Logo />
+
+---
+
+## 本期内容
+
+- 使用 TypeScript 编译器 API 实现 tsc \[-w] -p < tsconfig.json> 的功能
+- 支持 Custom Transformer 并且兼容 ttypescript 的配置写法
+- 示例 Transformer：ts-transform-pure-class
+- 示例 Transformer：ts-transform-define
+
+---
+
+# 实现 tsc \[-w] -p 的功能
+
+---
+
+<CodeSurfer>
+
+```ts file=./step/1-1.ts
+```
+
+```ts file=./step/1-2.ts
+```
+
+```ts file=./step/1-3.ts
+```
+
+```ts file=./step/1-4.ts
+```
+
+```ts file=./step/1-5.ts
+```
+
+```ts file=./step/1-6.ts
+```
+
+```ts file=./step/1-7.ts
+```
+
+```ts file=./step/1-8.ts
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 支持 Custom Transformer
+
+---
+
+<CodeSurfer>
+
+```ts file=./step/1-8.ts
+```
+
+```ts file=./step/1-9.ts
+```
+
+```ts file=./step/1-10.ts 33,43:55
+```
+
+```ts file=./step/1-11.ts 37,43:66
+```
+
+```ts file=./step/1-12.ts
+```
+
+```ts file=./step/1-13.ts
+```
+
+</CodeSurfer>
+
+---
+
+# 示例 Transformer
+
+把生成的 ES5 代码中的所有类的前缀注释 `/** @class */` 改为 `/*#__PURE__*/`
+
+---
+
+<CodeSurfer>
+
+```ts
+import type {
+  TransformerFactory,
+  SourceFile,
+  Visitor
+} from 'typescript'
+
+import * as ts from 'typescript'
+
+const transformerFactory: TransformerFactory<SourceFile> = (context) => {
+  const visitor: Visitor = (node) => {
+    return ts.visitEachChild(node, visitor, context)
+  }
+
+  return (src) => {
+    if (src.isDeclarationFile) return src
+    return ts.visitEachChild(src, visitor, context)
+  }
+}
+
+export default transformerFactory
+```
+
+```ts
+import type {
+  TransformerFactory,
+  SourceFile,
+  Visitor
+} from 'typescript'
+
+import * as ts from 'typescript'
+
+const transformerFactory: TransformerFactory<SourceFile> = (context) => {
+  const visitor: Visitor = (node) => {
+    if (
+      ts.isParenthesizedExpression(node) &&
+      ts.isCallExpression(node.expression) &&
+      ts.isPartiallyEmittedExpression(node.expression.expression)
+    ) {
+      const leadingComments = ts.getSyntheticLeadingComments(node)
+      if (leadingComments && leadingComments.length === 1 && leadingComments[0].text === '* @class ') {
+        leadingComments[0].text = '#__PURE__'
+      }
+    }
+    return ts.visitEachChild(node, visitor, context)
+  }
+
+  return (src) => {
+    if (src.isDeclarationFile) return src
+    return ts.visitEachChild(src, visitor, context)
+  }
+}
+
+export default transformerFactory
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 示例 Transformer
+
+实现类似 webpack.DefinePlugin 的效果，在编译时替换预定义的标识符
+
+代码太多就不完整展示了，只展示大概的流程，有兴趣可以看源码仓库
+
+---
+
+<CodeSurfer>
+
+```ts file=./step/2-1.ts
+```
+
+```ts file=./step/2-2.ts
+```
+
+```ts file=./step/2-3.ts
+```
+
+```ts file=./step/2-4.ts
+```
+
+```ts file=./step/2-5.ts
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+源码：[https://github.com/toyobayashi/tsapi](https://github.com/toyobayashi/tsapi)
+
+如果对你有帮助可以一键三连
