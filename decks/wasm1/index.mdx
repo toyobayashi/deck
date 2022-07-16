@@ -1,0 +1,595 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-wasm"
+import Logo from './Logo.jsx'
+
+export const theme = customTheme
+
+# WebAssembly 入门示例
+
+<Logo />
+
+---
+
+# 本期内容
+
+- WebAssembly 文本格式
+- JavaScript API 实例化 WebAssembly
+- 用 WASI SDK (clang + wasm-ld) 把 C 编译成 WebAssembly
+- 用 Emscripten 工具链把 C 编译成 WebAssembly
+
+---
+
+# WebAssembly 文本格式
+
+用文本格式 (.wat) 写一个递归实现的斐波那契函数
+
+---
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step subtitle="左侧是 wat，右侧是等价的 js">
+
+```wasm
+;; src/fib.wat
+
+(module
+)
+```
+
+```js
+// fib.js
+```
+
+</Step>
+
+<Step subtitle="定义并导出 fib 函数，i32 形参 $n，返回 i32 类型">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+  )
+)
+```
+
+```js
+// fib.js
+
+export function fib (n) {
+
+}
+```
+
+</Step>
+
+<Step subtitle="$n 入栈，2 入栈，出栈两个元素进行有符号小于比较，比较结果入栈，if 出栈比较结果，如果为真，$n入栈再出栈返回">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+    local.get $n
+    i32.const 2
+    i32.lt_s
+    if
+      local.get $n
+      return
+    end
+  )
+)
+```
+
+```js
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+}
+```
+
+</Step>
+
+<Step subtitle="$fib 函数顶部声明 $tmp，$n 入栈，1 入栈，出栈两个元素进行减法计算，计算结果入栈，调用 $fib 出栈计算结果，返回值入栈，返回值出栈存入 $tmp">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+    (local $tmp i32)
+
+    local.get $n
+    i32.const 2
+    i32.lt_s
+    if
+      local.get $n
+      return
+    end
+
+    local.get $n
+    i32.const 1
+    i32.sub
+    call $fib
+    local.set $tmp
+  )
+)
+```
+
+```js 5[10:19]
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+```
+
+</Step>
+
+<Step subtitle="$n 入栈，2 入栈，出栈两个元素进行减法计算，计算结果入栈，调用 $fib 出栈计算结果，返回值入栈">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+    (local $tmp i32)
+
+    local.get $n
+    i32.const 2
+    i32.lt_s
+    if
+      local.get $n
+      return
+    end
+
+    local.get $n
+    i32.const 1
+    i32.sub
+    call $fib
+    local.set $tmp
+
+    local.get $n
+    i32.const 2
+    i32.sub
+    call $fib
+  )
+)
+```
+
+```js 5[23:32]
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+```
+</Step>
+
+<Step subtitle="$tmp 再入栈">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+    (local $tmp i32)
+
+    local.get $n
+    i32.const 2
+    i32.lt_s
+    if
+      local.get $n
+      return
+    end
+
+    local.get $n
+    i32.const 1
+    i32.sub
+    call $fib
+    local.set $tmp
+
+    local.get $n
+    i32.const 2
+    i32.sub
+    call $fib
+    local.get $tmp
+  )
+)
+```
+
+```js 5[10:19,23:32]
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+```
+
+</Step>
+
+<Step subtitle="出栈两个元素进行加法计算，计算结果入栈再出栈返回">
+
+```wasm
+;; src/fib.wat
+
+(module
+  (func $fib (export "fib")
+      (param $n i32) (result i32)
+    (local $tmp i32)
+
+    local.get $n
+    i32.const 2
+    i32.lt_s
+    if
+      local.get $n
+      return
+    end
+
+    local.get $n
+    i32.const 1
+    i32.sub
+    call $fib
+    local.set $tmp
+
+    local.get $n
+    i32.const 2
+    i32.sub
+    call $fib
+    local.get $tmp
+    i32.add
+    return
+  )
+)
+```
+
+```js 5[2:8,21]
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+## WABT (WebAssembly Binary Toolkit)
+
+代码写完了，我们需要把 .wat 文本格式转换成 .wasm 二进制格式
+
+这一步需要用到 https://github.com/WebAssembly/wabt 中的 wat2wasm 工具
+
+<CodeSurfer>
+
+```txt
+mkdir out
+wat2wasm ./src/fib.wat -o ./out/fib.wasm
+```
+
+</CodeSurfer>
+
+---
+
+## JavaScript API 实例化 WebAssembly
+
+GET 请求 wasm 文件，使用 WebAssembly 全局 API 编译并实例化 wasm
+
+<CodeSurferColumns sizes={[3,2]}>
+
+<Step>
+
+```html subtitle="index.html"
+<script src="./index.js" type="module"></script>
+```
+
+```json subtitle="package.json，告诉 Node.js 当前包的所有 js 都是 ES Module 而不是 CommonJS"
+{
+  "type": "module"
+}
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurfer>
+
+```js subtitle="fetchAndCompile 请求后再编译 wasm"
+// index.js
+
+async function fetchAndCompile (url, importObject) {
+  if (typeof fetch === 'function') {
+
+  } else {
+
+  }
+}
+```
+
+```js subtitle="优先使用 WebAssembly.instantiateStreaming 边接收流边编译，WebAssembly.instantiateStreaming 不可用或返回头 Content-Type 不是 application/wasm 时回退到完整接收 wasm 到内存后再编译，必须重新 fetch"
+// index.js
+
+async function fetchAndCompile (url, importObject) {
+  if (typeof fetch === 'function') {
+    try {
+      return await WebAssembly.instantiateStreaming(fetch(url), importObject)
+    } catch (_) {
+      const response = await fetch(url)
+      const arrayBuffer = await response.arrayBuffer()
+      return await WebAssembly.instantiate(arrayBuffer, importObject)
+    }
+  } else {
+
+  }
+}
+```
+
+```js subtitle="fetch 不可用时用 XHR (现代浏览器基本都支持 fetch)"
+// index.js
+
+async function fetchAndCompile (url, importObject) {
+  if (typeof fetch === 'function') {
+    try {
+      return await WebAssembly.instantiateStreaming(fetch(url), importObject)
+    } catch (_) {
+      const response = await fetch(url)
+      const arrayBuffer = await response.arrayBuffer()
+      return await WebAssembly.instantiate(arrayBuffer, importObject)
+    }
+  } else {
+    const arrayBuffer = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.responseType = 'arraybuffer'
+      xhr.onload = function () {
+        resolve(xhr.response)
+      }
+      xhr.onerror = function () {
+        reject(new Error('xhr GET "' + url + '" failed'))
+      }
+      xhr.open('GET', url)
+      xhr.send()
+    })
+    return await WebAssembly.instantiate(arrayBuffer, importObject)
+  }
+}
+```
+
+```js subtitle="如果是 Node.js 运行时，用 fs 把 wasm 读进内存里再编译"
+// index.js
+
+async function fetchAndCompile (url, importObject) {
+  if (
+    typeof process === 'object' &&
+    process.versions &&
+    typeof process.versions.node === 'string'
+  ) {
+    const fs = await import('node:fs/promises')
+    const buffer = await fs.readFile(url)
+    return await WebAssembly.instantiate(buffer, importObject)
+  }
+
+  if (typeof fetch === 'function') {
+    try {
+      return await WebAssembly.instantiateStreaming(fetch(url), importObject)
+    } catch (_) {
+      const response = await fetch(url)
+      const arrayBuffer = await response.arrayBuffer()
+      return await WebAssembly.instantiate(arrayBuffer, importObject)
+    }
+  } else {
+    const arrayBuffer = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.responseType = 'arraybuffer'
+      xhr.onload = function () {
+        resolve(xhr.response)
+      }
+      xhr.onerror = function () {
+        reject(new Error('xhr GET "' + url + '" failed'))
+      }
+      xhr.open('GET', url)
+      xhr.send()
+    })
+    return await WebAssembly.instantiate(arrayBuffer, importObject)
+  }
+}
+```
+
+```js subtitle="使用 wasm 导出的 fib 函数，与 JavaScript 版本简单比较下速度"
+// index.js
+
+async function fetchAndCompile (url, importObject) {
+  if (
+    typeof process === 'object' &&
+    process.versions &&
+    typeof process.versions.node === 'string'
+  ) {
+    const fs = await import('node:fs/promises')
+    const buffer = await fs.readFile(url)
+    return await WebAssembly.instantiate(buffer, importObject)
+  }
+
+  if (typeof fetch === 'function') {
+    try {
+      return await WebAssembly.instantiateStreaming(fetch(url), importObject)
+    } catch (_) {
+      const response = await fetch(url)
+      const arrayBuffer = await response.arrayBuffer()
+      return await WebAssembly.instantiate(arrayBuffer, importObject)
+    }
+  } else {
+    const arrayBuffer = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.responseType = 'arraybuffer'
+      xhr.onload = function () {
+        resolve(xhr.response)
+      }
+      xhr.onerror = function () {
+        reject(new Error('xhr GET "' + url + '" failed'))
+      }
+      xhr.open('GET', url)
+      xhr.send()
+    })
+    return await WebAssembly.instantiate(arrayBuffer, importObject)
+  }
+}
+
+const {
+  instance: {
+    exports: { fib: _fib }
+  }
+} = await fetchAndCompile('./out/fib.wasm', {})
+
+// 静态 import 应写在顶部，这里为了方便演示就写这了
+import { fib } from './fib.js'
+
+const input = 24
+let output
+
+console.time('wat2wasm\n')
+output = _fib(input)
+console.timeEnd('wat2wasm\n')
+console.log(output)
+
+console.time('JavaScript: fib\n')
+output = fib(input)
+console.timeEnd('JavaScript: fib\n')
+console.log(output)
+
+// Live Server 打开 index.html 或者 node ./index.js
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+## 用 WASI SDK 把 C 编译成 WebAssembly
+
+实际应用中，我们几乎不会直接去写难以理解和维护的文本格式 wat
+
+LLVM 把 C/C++ 或 Rust 编译成 wasm 是比较成熟的了
+
+下面介绍用 WASI SDK (clang + wasm-ld) 把 C 编译成 wasm
+
+---
+
+## 用 WASI SDK 把 C 编译成 WebAssembly
+
+下载安装：https://github.com/WebAssembly/wasi-sdk/releases
+
+加一下 PATH 环境变量，和 WASI_SDK_PATH 变量，然后检查是否安装成功
+
+<CodeSurferColumns sizes={[1,1]}>
+
+<Step>
+
+```txt subtitle="Windows"
+where clang
+where wasm-ld
+clang --version
+wasm-ld --version
+```
+
+```text subtitle="Linux"
+which clang
+which wasm-ld
+clang --version
+wasm-ld --version
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurfer>
+
+```c subtitle="同样用 C 写一个递归实现的斐波那契函数"
+// src/fib.c
+
+int fib(int n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+```
+
+```c subtitle="标记导出，编译命令"
+// src/fib.c
+
+#define WASM_EXPORT __attribute__((visibility("default")))
+
+WASM_EXPORT
+int fib(int n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+
+// clang -c -O3 --target=wasm32-wasi -o ./out/fibc.o ./src/fib.c
+// wasm-ld --no-entry --strip-all --export-dynamic ./out/fibc.o -o ./out/fibc.wasm
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+<CodeSurfer>
+
+```js
+// index.js
+
+async function fetchAndCompile (url, importObject) { /* ... */ }
+
+const {
+  instance: {
+    exports: { fib: _fibc }
+  }
+} = await fetchAndCompile('./out/fibc.wasm', {})
+
+console.time('clang -O3\n')
+output = _fibc(input)
+console.timeEnd('clang -O3\n')
+console.log(output)
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+源码：[https://github.com/toyobayashi/tsapi](https://github.com/toyobayashi/tsapi)
+
+如果对你有帮助可以一键三连
