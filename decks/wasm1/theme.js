@@ -10,5 +10,6 @@ theme.styles.CodeSurfer.subtitle.bottom = '-0.2em'
 theme.styles.CodeSurfer.tokens.boolean = { color: 'rgb(100, 102, 149)' }
 theme.styles.CodeSurfer.tokens.method = { color: '#DCDCAA' }
 theme.styles.CodeSurfer.tokens['maybe-class-name'] = { color: 'rgb(78, 201, 176)' }
+theme.styles.CodeSurfer.tokens['macro-name'] = { color: '#BEB7FF' }
 
 export default theme

@@ -2,6 +2,8 @@ import { CodeSurfer, CodeSurferColumns } from "code-surfer"
 import customTheme from './theme.js'
 import "prismjs/components/prism-wasm"
 import Logo from './Logo.jsx'
+import perf22 from './assets/perf22.png'
+import perf24 from './assets/perf24.png'
 
 export const theme = customTheme
 
@@ -17,6 +19,7 @@ export const theme = customTheme
 - JavaScript API 实例化 WebAssembly
 - 用 WASI SDK (clang + wasm-ld) 把 C 编译成 WebAssembly
 - 用 Emscripten 工具链把 C 编译成 WebAssembly
+- WebAssembly 到底快不快
 
 ---
 
@@ -561,14 +564,8 @@ int fib(int n) {
 ```diff
 ```
 
-</CodeSurfer>
-
----
-
-<CodeSurfer>
-
 ```js
-// index.js
+// index.js 中调用
 
 async function fetchAndCompile (url, importObject) { /* ... */ }
 
@@ -577,6 +574,9 @@ const {
     exports: { fib: _fibc }
   }
 } = await fetchAndCompile('./out/fibc.wasm', {})
+
+const input = 24
+let output
 
 console.time('clang -O3\n')
 output = _fibc(input)
@@ -588,8 +588,209 @@ console.log(output)
 
 ---
 
+## 用 Emscripten 工具链把 C 编译成 WebAssembly
+
+WASI 主要是为了能让 wasm 脱离浏览器运行在其他 wasm 运行时中
+
+现阶段仍不支持 C++ 异常处理，pthread 多线程等常规功能
+
+如果想在浏览器复用现有的 C 代码，推荐使用更加成熟的 Emscripten
+
+https://emscripten.org/docs/getting_started/downloads.html
+
+---
+
+<CodeSurfer>
+
+```c subtitle="稍微改造一下刚才的 C 代码"
+// src/fib.c
+
+#define WASM_EXPORT __attribute__((visibility("default")))
+
+WASM_EXPORT
+int fib(int n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+
+// clang -c -O3 --target=wasm32-wasi -o ./out/fibc.o ./src/fib.c
+// wasm-ld --no-entry --strip-all --export-dynamic ./out/fibc.o -o ./out/fibc.wasm
+```
+
+```c subtitle="使用 Emscripten 编译时，WASM_EXPORT 应展开为 __attribute__((used))，编译命令如下"
+// src/fib.c
+
+#ifdef __EMSCRIPTEN__
+#define WASM_EXPORT __attribute__((used))
+#else
+#define WASM_EXPORT __attribute__((visibility("default")))
+#endif
+
+WASM_EXPORT
+int fib(int n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+
+// emcc -O3 --no-entry -o ./out/fibemcc.wasm ./src/fib.c
+```
+
+```diff
+```
+
+```js
+// index.js 中调用
+
+async function fetchAndCompile (url, importObject) { /* ... */ }
+
+const {
+  instance: {
+    exports: { fib: _fibemcc }
+  }
+} = await fetchAndCompile('./out/fibemcc.wasm', {})
+
+const input = 24
+let output
+
+console.time('emcc -O3\n')
+output = _fibemcc(input)
+console.timeEnd('emcc -O3\n')
+console.log(output)
+```
+
+</CodeSurfer>
+
+---
+
+## 用 Emscripten 工具链把 C 编译成 WebAssembly
+
+Emscripten 不但支持生成单独的 wasm，而且支持生成 JS 胶水代码
+
+胶水代码中做的事情是初始化 wasm 内存，请求编译 wasm
+
+往 importObject 中注入 C/C++ 系统库需要用到的 JS 实现等等
+
+---
+
+<CodeSurfer>
+
+```js subtitle="编译命令使用 -sMODULARIZE 启用模块化，生成的文件名后缀改为 mjs"
+// emcc -O3 -sMODULARIZE -o ./out/fibemccesm.mjs ./src/fib.c
+
+const input = 24
+let output
+```
+
+```js subtitle="不需要手动 fetch 了，初始化返回 Emscripten 的 Module，C 中导出的符号带前缀下划线"
+// emcc -O3 -sMODULARIZE -o ./out/fibemccesm.mjs ./src/fib.c
+
+import init from './out/fibemccesm.mjs'
+
+const Module = await init({ /* 初始化选项 */ })
+const _fibemccesm = Module._fib
+
+const input = 24
+let output
+
+console.time('emcc -O3 -sMODULARIZE\n')
+output = _fibemccesm(input)
+console.timeEnd('emcc -O3 -sMODULARIZE\n')
+console.log(output)
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# WebAssembly 到底快不快
+
+---
+
+<CodeSurfer>
+
+```js 8:10 subtitle="再用 JS 写一个动态规划优化过的斐波那契函数"
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+
+export function dpFib (n) {
+
+}
+```
+
+```js subtitle="动态规划，只用两个变量存储每一步的计算结果"
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+
+export function dpFib (n) {
+  if (n < 2) return n
+  const tmp = [0, 1]
+  for (let i = 2; i <= n; ++i) {
+    tmp[1] = tmp[1] + tmp[0]
+    tmp[0] = tmp[1] - tmp[0]
+  }
+  return tmp[1]
+}
+```
+
+```js subtitle="调用"
+// fib.js
+
+export function fib (n) {
+  if (n < 2) return n
+  return fib(n - 1) + fib(n - 2)
+}
+
+export function dpFib (n) {
+  if (n < 2) return n
+  const tmp = [0, 1]
+  for (let i = 2; i <= n; ++i) {
+    tmp[1] = tmp[1] + tmp[0]
+    tmp[0] = tmp[1] - tmp[0]
+  }
+  return tmp[1]
+}
+
+// index.js
+
+const input = 24
+let output
+
+console.time('JavaScript: dpFib\n')
+output = dpFib(input)
+console.timeEnd('JavaScript: dpFib\n')
+console.log(output)
+```
+
+</CodeSurfer>
+
+---
+
+粗略对比一下刚才 WAT / 不同编译工具链编译的 c / JS 版本的斐波那契函数性能
+
+<div style={{ display: 'flex' }}>
+  <img src={perf22} />
+  <img src={perf24} style={{ marginLeft: '64px' }} />
+</div>
+
+当输入 22 时 JS 慢 wasm 八倍，当输入 24 时 JS 慢 wasm 五六倍（JS 引擎本身会优化）
+
+而 JS 动态规划优化后的算法仍比 wasm 快，可以看出好的算法才是性能的关键
+
+---
+
 # 感谢观看
 
-源码：[https://github.com/toyobayashi/tsapi](https://github.com/toyobayashi/tsapi)
+源码：[https://github.com/toyobayashi/wasm-fib-demo](https://github.com/toyobayashi/wasm-fib-demo)
 
 如果对你有帮助可以一键三连
