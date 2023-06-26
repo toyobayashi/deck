@@ -1,0 +1,750 @@
+import { CodeSurfer, CodeSurferColumns } from "code-surfer"
+import customTheme from './theme.js'
+import "prismjs/components/prism-cpp"
+import "prismjs/components/prism-rust"
+import Logo from '../extends/Logo.jsx'
+
+export const theme = customTheme
+
+# 显式资源管理与 using 关键字
+
+<Logo />
+
+介绍 ESNext 的显式资源管理与 TypeScript 如何编译 using 关键字
+
+---
+
+# 本期内容
+
+- 显式资源管理
+- TypeScript 如何编译 using 关键字
+- 异步的 await using
+
+---
+
+# 显式资源管理
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="以 a+ 模式打开文件 a，读取文件大小后手动关闭文件"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+
+function main () {
+    // 获取资源 a
+    const fdA = openSync('./a.txt', 'a+')
+
+    // 使用资源 a
+    const statA = fstatSync(fdA, { bigint: true })
+    console.log(statA.size)
+
+    // 释放资源 a
+    closeSync(fdA)
+}
+
+main()
+```
+
+```ts subtitle="如果中途抛错，文件则不会被关闭"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+function main () {
+    // 获取资源 a
+    const fdA = openSync('./a.txt', 'a+')
+
+    // 使用资源 a
+    const statA = fstatSync(fdA, { bigint: true })
+    console.log(statA.size)
+
+    // 如果在使用途中抛出错误
+    // 则资源不会被释放
+    strictEqual(statA.size, Number(statA.size)) // throws
+
+    // 释放资源 a
+    closeSync(fdA)
+}
+
+main()
+```
+
+```ts subtitle="因此要把关闭文件放在 try-finally 中"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+function main () {
+  try {
+    // 获取资源 a
+    var fdA = openSync('./a.txt', 'a+')
+
+    // 使用资源 a
+    const statA = fstatSync(fdA, { bigint: true })
+    console.log(statA.size)
+    strictEqual(statA.size, Number(statA.size)) // throws
+  } finally {
+    // 释放资源 a
+    if (fdA) closeSync(fdA)
+  }
+}
+
+main()
+```
+
+```ts subtitle="但如果又打开了一个依赖 a 的 b 文件呢"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+function main () {
+  try {
+    // 获取资源 a
+    var fdA = openSync('./a.txt', 'a+')
+    // 使用资源 a
+    // ...
+      // 获取资源 b
+      let fdB = openSync('./b.txt', 'a+')
+      var closeB = () => {
+        // b 文件在关闭前要向 a 文件写入某些内容
+        writeSync(fdA, Buffer.from('some content\n'))
+        if (fdB) { closeSync(fdB); fdB = undefined }
+      }
+      // 使用资源 b
+      // ...
+  } finally {
+    // 释放资源 a
+    if (fdA) closeSync(fdA)
+    // 释放资源 b
+    // 此时 a 文件已被关闭，写入失败
+    closeB()
+  }
+}
+
+main()
+```
+
+```ts subtitle="所以必须确保资源释放的顺序" 8:30
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+function main () {
+  try {
+    // 获取资源 a
+    var fdA = openSync('./a.txt', 'a+')
+    // 使用资源 a
+    // ...
+    try {
+      // 获取资源 b
+      let fdB = openSync('./b.txt', 'a+')
+      var closeB = () => {
+        // b 文件在关闭前要向 a 文件写入某些内容
+        writeSync(fdA, Buffer.from('some content\n'))
+        if (fdB) { closeSync(fdB); fdB = undefined }
+      }
+      // 使用资源 b
+      // ...
+    } finally {
+      // 释放资源 b
+      closeB()
+    }
+  } finally {
+    // 释放资源 a
+    if (fdA) closeSync(fdA)
+  }
+}
+
+main()
+```
+
+```diff subtitle="如果同一作用域中要使用多个有依赖关系的资源，代码将非常繁琐"
+```
+
+```ts subtitle="于是有了 using 关键字，离开作用域时 using 获得的资源按逆序调用 Symbol.dispose 方法"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function main () {
+  // 获取资源 a
+  using fdA = openFile('./a.txt', 'a+')
+  // 获取资源 b
+  using fdB = openFile('./b.txt', 'a+', () => {
+    fdA.write(Buffer.from('some content\n'))
+  })
+  // 使用资源 a
+  // ...
+  // 使用资源 b
+  // ...
+  // 隐式调用 fdB[Symbol.dispose]()
+  // 隐式调用 fdA[Symbol.dispose]()
+}
+
+main()
+```
+
+```ts subtitle="封装 Disposable"
+import {
+  openSync, closeSync, fstatSync, writeSync,
+  type PathLike, type OpenMode, type Mode
+} from 'node:fs'
+import { strictEqual } from 'node:assert'
+
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (path: PathLike, flags: OpenMode, customDispose?: () => void): FileHandle {
+  return new FileHandle(openSync(path, flags), customDispose)
+}
+
+class FileHandle {
+  public constructor (
+    private fd: number,
+    private customDispose?: () => void
+  ) {}
+
+  /* public valueOf (): number {
+    return this.fd
+  } */
+
+  public write (data: Buffer): number {
+    return writeSync(this.fd, data)
+  }
+
+  public close (): void {
+    closeSync(this.fd)
+  }
+
+  public [Symbol.dispose] () {
+    try {
+      if (typeof this.customDispose === 'function') {
+        this.customDispose()
+      }
+    } finally {
+      this.close()
+    }
+  }
+}
+
+function main () {
+  // 获取资源 a
+  using fdA = openFile('./a.txt', 'a+')
+  // 获取资源 b
+  using fdB = openFile('./b.txt', 'a+', () => {
+    fdA.write(Buffer.from('some content\n'))
+  })
+  // 使用资源 a
+  // ...
+  // 使用资源 b
+  // ...
+  // 隐式调用 fdB[Symbol.dispose]()
+  // 隐式调用 fdA[Symbol.dispose]()
+}
+
+main()
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# TypeScript 如何编译 using 关键字
+
+TypeScript 从 5.2.0-dev.20230624 版本起已实现编译 using 声明。
+
+---
+
+<CodeSurferColumns sizes={[2,5]}>
+
+<Step>
+
+```ts
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (/* ... */) { /* ... */ }
+
+function main () {
+
+}
+```
+
+```js
+"use strict";
+var _a;
+(_a = Symbol.dispose) !== null && _a !== void 0
+  ? _a
+  : (Symbol.dispose = Symbol('Symbol.dispose'));
+
+function openFile (/* ... */) { /* ... */ }
+
+function main() {
+
+}
+```
+
+</Step>
+
+<Step>
+
+```ts
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (/* ... */) { /* ... */ }
+
+function main () {
+  using x = {
+    [Symbol.dispose]() {
+      console.log('x dispose')
+    }
+  }
+}
+```
+
+```js
+"use strict";
+var _a;
+(_a = Symbol.dispose) !== null && _a !== void 0
+  ? _a
+  : (Symbol.dispose = Symbol('Symbol.dispose'));
+
+function openFile (/* ... */) { /* ... */ }
+
+function main() {
+  const env_1 = { stack: [], error: void 0, hasError: false };
+  try {
+    const x = __addDisposableResource(env_1, {
+      [Symbol.dispose]() {
+        console.log('x dispose');
+      }
+    }, false);
+  }
+  catch (e_1) {
+    env_1.error = e_1;
+    env_1.hasError = true;
+  }
+  finally {
+    __disposeResources(env_1);
+  }
+}
+```
+
+</Step>
+
+<Step>
+
+```ts
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (/* ... */) { /* ... */ }
+
+function main () {
+  using x = {
+    [Symbol.dispose]() {
+      console.log('x dispose')
+    }
+  }
+  {
+    using fdA = openFile('./a.txt', 'a+')
+    using fdB = openFile('./b.txt', 'a+', () => {
+      fdA.write(Buffer.from('some content\n'))
+    })
+  }
+}
+```
+
+```js
+"use strict";
+var _a;
+(_a = Symbol.dispose) !== null && _a !== void 0
+  ? _a
+  : (Symbol.dispose = Symbol('Symbol.dispose'));
+
+function openFile (/* ... */) { /* ... */ }
+
+function main() {
+  const env_1 = { stack: [], error: void 0, hasError: false };
+  try {
+    const x = __addDisposableResource(env_1, {
+      [Symbol.dispose]() {
+        console.log('x dispose');
+      }
+    }, false);
+    {
+      const env_2 = { stack: [], error: void 0, hasError: false };
+      try {
+        const fdA = __addDisposableResource(env_2, openFile('./a.txt', 'a+'), false);
+        const fdB = __addDisposableResource(env_2, openFile('./b.txt', 'a+', () => {
+          fdA.write(Buffer.from('some content\n'));
+        }), false);
+      }
+      catch (e_1) {
+        env_2.error = e_1;
+        env_2.hasError = true;
+      }
+      finally {
+        __disposeResources(env_2);
+      }
+    }
+  }
+  catch (e_2) {
+    env_1.error = e_2;
+    env_1.hasError = true;
+  }
+  finally {
+    __disposeResources(env_1);
+  }
+}
+```
+
+</Step>
+
+<Step>
+
+```ts
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (/* ... */) { /* ... */ }
+
+function main () {
+  using x = {
+    [Symbol.dispose]() {
+      console.log('x dispose')
+    }
+  }
+  {
+    using fdA = openFile('./a.txt', 'a+')
+    using fdB = openFile('./b.txt', 'a+', () => {
+      fdA.write(Buffer.from('some content\n'))
+    })
+  }
+}
+```
+
+```js
+"use strict";
+var __addDisposableResource = (this && this.__addDisposableResource) || function (env, value, async) {
+  if (value !== null && value !== void 0) {
+    if (typeof value !== "object") throw new TypeError("Object expected.");
+    var dispose;
+    if (async) {
+      if (!Symbol.asyncDispose) throw new TypeError("Symbol.asyncDispose is not defined.");
+      dispose = value[Symbol.asyncDispose];
+    }
+    if (dispose === void 0) {
+      if (!Symbol.dispose) throw new TypeError("Symbol.dispose is not defined.");
+      dispose = value[Symbol.dispose];
+    }
+    if (typeof dispose !== "function") throw new TypeError("Object not disposable.");
+    env.stack.push({ value: value, dispose: dispose, async: async });
+  }
+  else if (async) {
+    env.stack.push({ async: true });
+  }
+  return value;
+};
+var _a;
+(_a = Symbol.dispose) !== null && _a !== void 0
+  ? _a
+  : (Symbol.dispose = Symbol('Symbol.dispose'));
+
+function openFile (/* ... */) { /* ... */ }
+
+function main() {
+  const env_1 = { stack: [], error: void 0, hasError: false };
+  try {
+    const x = __addDisposableResource(env_1, {
+      [Symbol.dispose]() {
+        console.log('x dispose');
+      }
+    }, false);
+    {
+      const env_2 = { stack: [], error: void 0, hasError: false };
+      try {
+        const fdA = __addDisposableResource(env_2, openFile('./a.txt', 'a+'), false);
+        const fdB = __addDisposableResource(env_2, openFile('./b.txt', 'a+', () => {
+          fdA.write(Buffer.from('some content\n'));
+        }), false);
+      }
+      catch (e_1) {
+        env_2.error = e_1;
+        env_2.hasError = true;
+      }
+      finally {
+        __disposeResources(env_2);
+      }
+    }
+  }
+  catch (e_2) {
+    env_1.error = e_2;
+    env_1.hasError = true;
+  }
+  finally {
+    __disposeResources(env_1);
+  }
+}
+```
+
+</Step>
+
+<Step>
+
+```ts
+// @ts-expect-error
+Symbol.dispose ??= Symbol('Symbol.dispose')
+
+function openFile (/* ... */) { /* ... */ }
+
+function main () {
+  using x = {
+    [Symbol.dispose]() {
+      console.log('x dispose')
+    }
+  }
+  {
+    using fdA = openFile('./a.txt', 'a+')
+    using fdB = openFile('./b.txt', 'a+', () => {
+      fdA.write(Buffer.from('some content\n'))
+    })
+  }
+}
+```
+
+```js
+"use strict";
+var __addDisposableResource = (this && this.__addDisposableResource) || function (env, value, async) {
+  if (value !== null && value !== void 0) {
+    if (typeof value !== "object") throw new TypeError("Object expected.");
+    var dispose;
+    if (async) {
+      if (!Symbol.asyncDispose) throw new TypeError("Symbol.asyncDispose is not defined.");
+      dispose = value[Symbol.asyncDispose];
+    }
+    if (dispose === void 0) {
+      if (!Symbol.dispose) throw new TypeError("Symbol.dispose is not defined.");
+      dispose = value[Symbol.dispose];
+    }
+    if (typeof dispose !== "function") throw new TypeError("Object not disposable.");
+    env.stack.push({ value: value, dispose: dispose, async: async });
+  }
+  else if (async) {
+    env.stack.push({ async: true });
+  }
+  return value;
+};
+var __disposeResources = (this && this.__disposeResources) || (function (SuppressedError) {
+  return function (env) {
+    function fail(e) {
+      env.error = env.hasError ? new SuppressedError(e, env.error, "An error was suppressed during disposal.") : e;
+      env.hasError = true;
+    }
+    function next() {
+      while (env.stack.length) {
+        var rec = env.stack.pop();
+        try {
+          var result = rec.dispose && rec.dispose.call(rec.value);
+          if (rec.async) return Promise.resolve(result).then(next, function(e) { fail(e); return next(); });
+        }
+        catch (e) {
+          fail(e);
+        }
+      }
+      if (env.hasError) throw env.error;
+    }
+    return next();
+  };
+})(typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+  var e = new Error(message);
+  return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+});
+var _a;
+(_a = Symbol.dispose) !== null && _a !== void 0
+  ? _a
+  : (Symbol.dispose = Symbol('Symbol.dispose'));
+
+function openFile (/* ... */) { /* ... */ }
+
+function main() {
+  const env_1 = { stack: [], error: void 0, hasError: false };
+  try {
+    const x = __addDisposableResource(env_1, {
+      [Symbol.dispose]() {
+        console.log('x dispose');
+      }
+    }, false);
+    {
+      const env_2 = { stack: [], error: void 0, hasError: false };
+      try {
+        const fdA = __addDisposableResource(env_2, openFile('./a.txt', 'a+'), false);
+        const fdB = __addDisposableResource(env_2, openFile('./b.txt', 'a+', () => {
+          fdA.write(Buffer.from('some content\n'));
+        }), false);
+      }
+      catch (e_1) {
+        env_2.error = e_1;
+        env_2.hasError = true;
+      }
+      finally {
+        __disposeResources(env_2);
+      }
+    }
+  }
+  catch (e_2) {
+    env_1.error = e_2;
+    env_1.hasError = true;
+  }
+  finally {
+    __disposeResources(env_1);
+  }
+}
+```
+
+</Step>
+
+<Step>
+
+```diff
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# 异步的 await using
+
+---
+
+<CodeSurfer>
+
+```ts subtitle="Symbol.asyncDispose"
+import type { PathLike, OpenMode } from 'node:fs'
+import * as fsPromises from 'node:fs/promises'
+
+// @ts-expect-error
+Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose')
+
+async function main () {
+
+}
+
+main()
+```
+
+```ts subtitle="await using 隐式调用 Symbol.asyncDispose，返回值为 Promise<void>"
+import type { PathLike, OpenMode } from 'node:fs'
+import * as fsPromises from 'node:fs/promises'
+
+// @ts-expect-error
+Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose')
+
+async function openFile (
+  path: PathLike,
+  flags: OpenMode,
+  customDispose?: () => void
+): Promise<FileHandle> {
+  return new FileHandle(await fsPromises.open(path, flags), customDispose)
+}
+
+class FileHandle {
+  public constructor (
+    public fd: fsPromises.FileHandle,
+    private customDispose?: () => void | Promise<void>
+  ) {}
+
+  public async [Symbol.asyncDispose] () {
+    if (typeof this.customDispose === 'function') {
+      await Promise.resolve(this.customDispose())
+    }
+    await this.fd.close()
+  }
+}
+
+async function main () {
+
+}
+
+main()
+```
+
+```ts
+import type { PathLike, OpenMode } from 'node:fs'
+import * as fsPromises from 'node:fs/promises'
+
+// @ts-expect-error
+Symbol.asyncDispose ??= Symbol('Symbol.asyncDispose')
+
+async function openFile (
+  path: PathLike,
+  flags: OpenMode,
+  customDispose?: () => void
+): Promise<FileHandle> {
+  return new FileHandle(await fsPromises.open(path, flags), customDispose)
+}
+
+class FileHandle {
+  public constructor (
+    public fd: fsPromises.FileHandle,
+    private customDispose?: () => void | Promise<void>
+  ) {}
+
+  public async [Symbol.asyncDispose] () {
+    if (typeof this.customDispose === 'function') {
+      await Promise.resolve(this.customDispose())
+    }
+    await this.fd.close()
+  }
+}
+
+async function main () {
+  await using fdA = await openFile('./a.txt', 'a+')
+  await using fdB = await openFile('./b.txt', 'a+', async () => {
+    await fdA.fd.write(Buffer.from('some content\n'))
+  })
+}
+
+main()
+```
+
+```diff
+```
+
+</CodeSurfer>
+
+---
+
+# 感谢观看
+
+显式资源管理提案：[https://github.com/tc39/proposal-explicit-resource-management](https://github.com/tc39/proposal-explicit-resource-management)
+
+TypeScript using 实现：[https://github.com/microsoft/TypeScript/pull/54505](https://github.com/microsoft/TypeScript/pull/54505)
+
+如果对你有帮助可以一键三连

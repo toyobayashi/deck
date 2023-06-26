@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "outDir": "out",
+    "module": "CommonJS",
+    "target": "ES2019",
+    "sourceMap": true,
+    "lib": ["DOM", "ESNext"],
+    "typeRoots": [
+      "./node_modules/@types"
+    ]
+  },
+  "include": [
+    "./src/**/*.ts"
+  ]
+}
