@@ -52,7 +52,7 @@ class Example2 {
   }
 
   async instantiate () {
-    const buffer = await fs.promises.readFile(path.join(__dirname, 'example2_c.wasm'))
+    const buffer = await fs.promises.readFile(path.join(__dirname, 'example2.wasm'))
     const result = await WebAssembly.instantiate(buffer, this.imports)
     const instance = result.instance
     this.instance = instance
