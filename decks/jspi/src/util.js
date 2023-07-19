@@ -16,6 +16,7 @@ export class WasmModule {
         logCString: (addr) => {
           console.log(decodeCString(this.memory, addr))
         },
+        log (a) { console.log(a) },
         ...env
       },
       ...rest
