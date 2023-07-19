@@ -8,9 +8,6 @@
 #define WASM_EXPORT __attribute__((visibility("default")))
 #endif
 
-WASM_IMPORT("env", "logCString")
-void log_c_string(const char* str);
-
 WASM_EXPORT
 int add(int a, int b) {
   return a + b;

@@ -74,7 +74,7 @@ const dlopen = wrapAsyncImport(async function (filename) {
     if (registryByUrl.has(url)) {
       return registryByUrl.get(url).id
     }
-    const mod = new WasmModule({
+    const mod = new WasmModule(url, {
       env: {
         memory,
         __indirect_function_table,
@@ -114,28 +114,35 @@ function dlsym (handle, symbol) {
   }
 }
 
-const mainModule = new WasmModule({
-  env: {
-    memory,
-    __indirect_function_table,
-    __stack_pointer,
-    __memory_base: new WebAssembly.Global({
-      mutable: false,
-      value: 'i32'
-    }, mainModuleGlobalBase),
-    __table_base: new WebAssembly.Global({
-      mutable: false,
-      value: 'i32'
-    }, __indirect_function_table.length),
-  },
-  dlfcn: {
-    dlopen,
-    dlsym
+const url = new URL('dlfcn.wasm', import.meta.url)
+const mainModule = new WasmModule(
+  url,
+  {
+    env: {
+      memory,
+      __indirect_function_table,
+      __stack_pointer,
+      __memory_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, mainModuleGlobalBase),
+      __table_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, __indirect_function_table.length),
+      log (value) {
+        console.log(value)
+      }
+    },
+    dlfcn: {
+      dlopen,
+      dlsym
+    }
   }
-})
+)
 
 mainModule.instantiate('dlfcn.wasm').then(() => {
-  register(0, new URL('dlfcn.wasm', import.meta.url), mainModule)
+  register(0, url, mainModule)
 
   const asyncStart = wrapAsyncExport(mainModule.exports._start)
   asyncStart().then((ret) => {

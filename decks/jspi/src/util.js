@@ -1,3 +1,5 @@
+const textDecoder = new TextDecoder()
+
 export function decodeCString (memory, addr) {
   let end = addr
   const HEAPU8 = new Uint8Array(memory.buffer)
@@ -5,22 +7,14 @@ export function decodeCString (memory, addr) {
     end++
   }
   const buffer = new Uint8Array(memory.buffer, addr, end - addr)
-  return new TextDecoder().decode(buffer)
+  return textDecoder.decode(buffer)
 }
 
 export class WasmModule {
-  constructor (imports = {}) {
-    const { env, ...rest } = imports
-    this.imports = {
-      env: {
-        logCString: (addr) => {
-          console.log(decodeCString(this.memory, addr))
-        },
-        log (a) { console.log(a) },
-        ...env
-      },
-      ...rest
-    }
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
     this.memory = env && env.memory
     this.table = env && env.__indirect_function_table
     this.module = undefined
@@ -31,11 +25,9 @@ export class WasmModule {
     return this.instance.exports
   }
 
-  async instantiate (file) {
-    if (this.instance && this.module) {
-      return { instance, module }
-    }
-    const url = new URL(file, import.meta.url)
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
     let buffer
     if (typeof window !== 'undefined') {
       buffer = (await fetch(url).then(r => r.arrayBuffer()))
@@ -48,7 +40,6 @@ export class WasmModule {
     this.instance = instance
     if (!this.memory) this.memory = instance.exports.memory
     if (!this.table) this.table = instance.exports.__indirect_function_table
-    return result
   }
 }
 
