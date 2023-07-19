@@ -5,20 +5,1768 @@ import Logo from './Logo.jsx'
 
 export const theme = customTheme
 
-# WebAssembly JavaScript Promise Integration
+# WebAssembly JSPI
 
 <Logo />
+
+WebAssembly JavaScript Promise Integration
 
 ---
 
 # 本期内容
 
+- JSPI 介绍
+- 利用 JSPI 实现简陋版的 dlopen 和 dlsym
+
 ---
 
+<CodeSurferColumns sizes={[3,4]}>
 
+<Step subtitle="先看个例子，左边是 C，用 llvm wasm32-unknown-unknown target 编译，右边是 wasm 的文本格式">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+
+)
+```
+
+</Step>
+
+<Step subtitle="从 JS 导入 logCString 函数用来打印以 0 结尾的字符串">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+)
+```
+
+</Step>
+
+<Step subtitle="从 JS 导入 sleep 函数，效果类似系统的 sleep">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+
+WASM_IMPORT("env", "sleep")
+void sleep(int ms);
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep (param i32)))
+)
+```
+
+</Step>
+
+<Step subtitle="导出 _start 函数和 wasm 的内存">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+
+WASM_IMPORT("env", "sleep")
+void sleep(int ms);
+
+WASM_EXPORT
+int _start() {
+  return 0;
+}
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep (param i32)))
+  (memory (export "memory") 1)
+  (func $_start (export "_start") (result i32)
+    i32.const 0
+  )
+)
+```
+
+</Step>
+
+<Step subtitle="_start 函数中先打印 begin，中间 sleep 一秒后再打印 end">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+
+WASM_IMPORT("env", "sleep")
+void sleep(int ms);
+
+WASM_EXPORT
+int _start() {
+  log_c_string("_start begin");
+  sleep(1000);
+  log_c_string("_start end");
+  return 0;
+}
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "_start begin\00")
+  (data (i32.const 13) "_start end\00")
+  (func $_start (export "_start") (result i32)
+    (call $imported_env_log_c_string (i32.const 0))
+    (call $imported_env_sleep (i32.const 1000))
+    (call $imported_env_log_c_string (i32.const 13))
+    i32.const 0
+  )
+)
+```
+
+</Step>
+
+<Step subtitle="sleep 要求等 1 秒后 wasm 的代码才继续往下跑，要如何实现？">
+
+```diff 26
+```
+
+```diff 12
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurferColumns sizes={[3,4]}>
+
+<Step subtitle="来看 JS 部分，为了方便在导入函数中访问 wasm 内存，先写个 WasmModule 类">
+
+```wasm 12
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "_start begin\00")
+  (data (i32.const 13) "_start end\00")
+  (func $_start (export "_start") (result i32)
+    (call $imported_env_log_c_string (i32.const 0))
+    (call $imported_env_sleep (i32.const 1000))
+    (call $imported_env_log_c_string (i32.const 13))
+    i32.const 0
+  )
+)
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="实例化兼容浏览器环境和 Node.js 环境">
+
+```diff 12
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+```
+
+</Step>
+
+<Step subtitle="把内存中的字符串转换成 JS 的 string">
+
+```diff 12
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+```
+
+</Step>
+
+<Step subtitle="实例化 wasm 并调用导出的 _start">
+
+```diff 12
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+
+const mod = new WasmModule(
+  new URL('example1.wasm', import.meta.url),
+  {
+    env: {
+      logCString (addr) {
+        console.log(decodeCString(mod.memory, addr))
+      },
+      sleep (ms) {
+        const end = Date.now() + ms
+        while (Date.now() < end) {}
+      }
+    }
+  }
+)
+
+mod.instantiate().then(() => {
+  const ret = mod.exports._start()
+  console.log('after _start')
+  console.log(ret)
+})
+
+/* 输出：
+
+  _start begin
+  (1 秒后)
+  _start end
+  after _start
+  0
+*/
+```
+
+</Step>
+
+<Step subtitle="为了实现 sleep 的效果，一种方法是用忙等待">
+
+```diff 12
+```
+
+```diff 59:62,75:79
+```
+
+</Step>
+
+<Step subtitle="忙等待会把整个线程卡住，浪费 CPU 资源，在 JS 中，我们常见的做法是用 setTimeout 配合 async/await 来模拟">
+
+```diff 12
+```
+
+```js 52:65,74:80
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+
+/**
+ * @example
+ * ```
+ * async function main () {
+ *   await asyncSleep(1000)
+ *   // ...
+ * }
+ * ```
+ */
+function asyncSleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+const mod = new WasmModule(
+  new URL('example1.wasm', import.meta.url),
+  {
+    env: {
+      logCString (addr) {
+        console.log(decodeCString(mod.memory, addr))
+      },
+      sleep (ms) {
+        const end = Date.now() + ms
+        while (Date.now() < end) {}
+      }
+    }
+  }
+)
+
+mod.instantiate().then(() => {
+  const ret = mod.exports._start()
+  console.log('after _start')
+  console.log(ret)
+})
+```
+
+</Step>
+
+<Step subtitle="但 wasm 不支持直接与 Promise 互操作，wasm 代码无法像 JS 那样添加 then 回调，也没有 async/await 语法支持。wasm 中只有同步代码，调用返回 Promise 的函数不会使 wasm 代码“停下来”">
+
+```diff 12
+```
+
+```js 52:56,65
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+
+function asyncSleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+const mod = new WasmModule(
+  new URL('example1.wasm', import.meta.url),
+  {
+    env: {
+      logCString (addr) {
+        console.log(decodeCString(mod.memory, addr))
+      },
+      sleep: asyncSleep // ❌
+    }
+  }
+)
+
+mod.instantiate().then(() => {
+  const ret = mod.exports._start()
+  console.log('after _start')
+  console.log(ret)
+})
+```
+
+</Step>
+
+<Step subtitle="为了解决这个问题，WebAssembly JavaScript Promise Integration 提案诞生">
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep
+      (param externref) (param i32)))
+  (global $suspender (mut externref) (ref.null extern))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "_start begin\00")
+  (data (i32.const 13) "_start end\00")
+  (func $sleep (param $ms i32)
+    (local $current_suspender externref)
+    (local.tee $current_suspender (global.get $suspender))
+    local.get $ms
+    call $imported_env_sleep
+    (global.set $suspender (local.get $current_suspender))
+  )
+  (func $_start (export "_start")
+    (param externref) (result i32)
+    (global.set $suspender (local.get 0))
+    (call $imported_env_log_c_string (i32.const 0))
+    (call $sleep (i32.const 1000))
+    (call $imported_env_log_c_string (i32.const 13))
+    i32.const 0
+  )
+)
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+
+function asyncSleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+const mod = new WasmModule(
+  new URL('example1.wasm', import.meta.url),
+  {
+    env: {
+      logCString (addr) {
+        console.log(decodeCString(mod.memory, addr))
+      },
+      sleep: new WebAssembly.Function(
+        {
+          parameters: ['externref', 'i32'],
+          results: []
+        },
+        asyncSleep,
+        { suspending: 'first' }
+      )
+    }
+  }
+)
+
+mod.instantiate().then(() => {
+  const _start = mod.exports._start
+  const { parameters } = WebAssembly.Function.type(_start)
+  const _startAsync = new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    _start,
+    { promising: 'first' }
+  )
+  _startAsync().then((ret) => {
+    console.log(ret)
+  })
+  console.log('after _start')
+})
+
+/* 输出：
+
+  _start begin
+  after _start
+  (1 秒后)
+  _start end
+  0
+*/
+```
+
+</Step>
+
+<Step subtitle="异步导入函数需要用 WebAssembly.Function 包住，指定正确的函数签名。suspending first 表示该函数的第一个参数接收 WebAssembly.Suspender 对象，所以是一个 externref，后续的参数类型与原函数相同，Suspender 对象会在调用与该异步导入函数对应的导出函数时由 JS 引擎创建。在 wasm 侧，我们创建了一个 $sleep 函数专门获取全局保存的 suspender 再传给异步导入函数，调用异步导入函数时引擎会用到 suspender 进行“栈切换”，等异步导入函数返回的 Promise 完成后再还原 wasm 的调用栈，以此实现 wasm 代码的“暂停”">
+
+```diff 5:8,12:18
+```
+
+```diff 65:72
+```
+
+</Step>
+
+<Step subtitle="由于导出函数 _start 的调用栈中存在异步导入函数 env.sleep，所以 _start 函数也要用 WebAssembly.Function 包住，promising first 表示导出函数的第一个参数接收包裹后函数被调用时由 JS 创建的 WebAssembly.Suspender 对象，函数的返回值一定是 Promise，所以 results 是 externref，在 JS 中调用时不需要手动传入 suspender，所以 parameters 要把第一个 externref 去掉。在 wasm 侧，我们把 JS 引擎创建的 suspender 保存在全局变量中，方便跨不同调用栈深度的异步导入函数获取">
+
+```diff 8,12:21,23
+```
+
+```diff 78:87
+```
+
+</Step>
+
+<Step subtitle="可以看到打印 _start begin 后马上打印了 after _start，一秒后再打印 _start end，这与预期的 JS Promise 行为一致，wasm 代码真的“暂停”了">
+
+```diff 5:8,12:21,23
+```
+
+```diff 88:91,96:100
+```
+
+</Step>
+
+<Step subtitle="“暂停”是打引号的，因为实际上你可以在上一次 Promise 未完成的时候再次调用 _start，这叫做 reentrancy，让 wasm 代码的行为看似像多线程，这种做法不安全，对于许多从 C 库编译到 wasm 的应用来说，C 代码假设单线程的全局变量不会存在条件竞争，但是 reentrancy 可能导致全局变量被意外修改，会使 C 代码变成“未定义行为”，遇到类似的问题将会难以解释发生了什么">
+
+```diff 5:8,12:21,23
+```
+
+```js
+class WasmModule {
+  constructor (url, imports = {}) {
+    this.url = url
+    this.imports = imports
+    const env = imports.env
+    this.memory = env && env.memory
+    this.table = env && env.__indirect_function_table
+    this.module = undefined
+    this.instance = undefined
+  }
+
+  get exports () {
+    return this.instance.exports
+  }
+
+  async instantiate () {
+    if (this.instance && this.module) return
+    const url = this.url
+    let buffer
+    if (typeof window !== 'undefined') {
+      buffer = (await fetch(url).then(r => r.arrayBuffer()))
+    } else {
+      const { readFile } = await import('fs/promises')
+      buffer = await readFile(url)
+    }
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
+    const instance = result.instance
+    this.instance = instance
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
+  }
+}
+
+const textDecoder = new TextDecoder()
+
+function decodeCString (memory, addr) {
+  let end = addr
+  const HEAPU8 = new Uint8Array(memory.buffer)
+  while (HEAPU8[end]) {
+    end++
+  }
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
+  return textDecoder.decode(buffer)
+}
+
+function asyncSleep (ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+const mod = new WasmModule(
+  new URL('example1.wasm', import.meta.url),
+  {
+    env: {
+      logCString (addr) {
+        console.log(decodeCString(mod.memory, addr))
+      },
+      sleep: new WebAssembly.Function(
+        {
+          parameters: ['externref', 'i32'],
+          results: []
+        },
+        asyncSleep,
+        { suspending: 'first' }
+      )
+    }
+  }
+)
+
+mod.instantiate().then(() => {
+  const _start = mod.exports._start
+  const { parameters } = WebAssembly.Function.type(_start)
+  const _startAsync = new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    _start,
+    { promising: 'first' }
+  )
+  _startAsync().then((ret) => {
+    console.log(ret)
+    _startAsync() // OK
+  })
+  console.log('after _start')
+  _startAsync() // ⚠️
+  _startAsync() // ⚠️
+  _startAsync() // ⚠️
+  _startAsync() // ⚠️
+})
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="回到最开始的 C 代码，在 C 中支持 JSPI？">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+
+WASM_IMPORT("env", "sleep")
+void sleep(int ms);
+
+WASM_EXPORT
+int _start() {
+  log_c_string("_start begin");
+  sleep(1000);
+  log_c_string("_start end");
+  return 0;
+}
+```
+
+```wasm
+;; wat2wasm -o <output.wasm> <input.wat>
+(module
+  (import "env" "logCString"
+    (func $imported_env_log_c_string (param i32)))
+  (import "env" "sleep"
+    (func $imported_env_sleep
+      (param externref) (param i32)))
+  (global $suspender (mut externref) (ref.null extern))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "_start begin\00")
+  (data (i32.const 13) "_start end\00")
+  (func $sleep (param $ms i32)
+    (local $current_suspender externref)
+    (local.tee $current_suspender (global.get $suspender))
+    local.get $ms
+    call $imported_env_sleep
+    (global.set $suspender (local.get $current_suspender))
+  )
+  (func $_start (export "_start")
+    (param externref) (result i32)
+    (global.set $suspender (local.get 0))
+    (call $imported_env_log_c_string (i32.const 0))
+    (call $sleep (i32.const 1000))
+    (call $imported_env_log_c_string (i32.const 13))
+    i32.const 0
+  )
+)
+```
+
+</Step>
+
+<Step subtitle="答案是一行代码也不改，用 binaryen 的 wasm-opt 修改编译后的 wasm 二进制文件即可达到文本格式同样的效果">
+
+```c
+/*
+  clang -O3 -o <output.wasm> \
+    --target=wasm32-unknown-unknown \
+    -nostdlib \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    <input.c>
+  wasm-opt -O3 --enable-reference-types --jspi \
+    --pass-arg=jspi-imports@env.sleep \
+    --pass-arg=jspi-exports@_start \
+    -o <output.wasm> <output.wasm>
+*/
+#define WASM_IMPORT(mod, name) \
+  __attribute__((import_module((mod)))) \
+  __attribute__((import_name((name))))
+
+#define WASM_EXPORT \
+  __attribute__((visibility("default")))
+
+WASM_IMPORT("env", "logCString")
+void log_c_string(const char* str);
+
+WASM_IMPORT("env", "sleep")
+void sleep(int ms);
+
+WASM_EXPORT
+int _start() {
+  log_c_string("_start begin");
+  sleep(1000);
+  log_c_string("_start end");
+  return 0;
+}
+```
+
+```diff
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+# JSPI 版 dlopen
+
+在 wasm 中异步 fetch 另一个 wasm 后再显式动态链接
+
+---
+
+<CodeSurferColumns>
+
+<Step subtitle="C 代码很简单，编译用 -fPIC 和链接选项 --import-memory, --import-table">
+
+```c
+// executable module
+#include <stddef.h>
+
+// #define WASM_IMPORT(mod, name) ...
+
+WASM_IMPORT("env", "log")
+void js_log(int value);
+
+WASM_IMPORT("dlfcn", "dlopen")
+void* dlopen(const char *filename, int flag);
+
+WASM_IMPORT("dlfcn", "dlsym")
+void *dlsym(void *handle, const char *symbol);
+
+__attribute__((visibility("default")))
+int mul_address(int* a, int* b) {
+  return (*a) * (*b);
+}
+
+__attribute__((visibility("default")))
+int _start() {
+  void* side = dlopen("side.wasm", 0);
+  if (side == NULL) return 1;
+  int (*add_address)(int*, int*) = dlsym(side, "add_address");
+  if (add_address == NULL) return 2;
+  int a = 5, b = 6;
+  int r = add_address(&a, &b);
+  js_log(r);
+
+  int (*add)(int, int) = dlsym(side, "add");
+  if (add == NULL) return 2;
+  r = add(a, b);
+  js_log(r);
+
+  int (*mul)(int*, int*) = dlsym(NULL, "mul_address");
+  if (mul == NULL) return 2;
+  r = mul(&a, &b);
+  js_log(r);
+  return 0;
+}
+```
+
+```c
+// shared library module
+__attribute__((visibility("default")))
+int add(int a, int b) {
+  return a + b;
+}
+
+__attribute__((visibility("default")))
+int add_address(int* a, int* b) {
+  return *a + *b;
+}
+/*
+  clang-17 -fPIC -O3 -o side.wasm \
+    --target=wasm32-unknown-unknown \
+    -nostdlib <input.c> \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    -Wl,--import-memory \
+    -Wl,--import-table \
+    -Wl,-shared
+  
+  clang-17 -fPIC -O3 -o main.wasm \
+    --target=wasm32-unknown-unknown \
+    -nostdlib <input.c> \
+    -Wl,--import-undefined \
+    -Wl,--export-dynamic \
+    -Wl,--no-entry \
+    -Wl,--import-memory \
+    -Wl,--import-table \
+    -Wl,-pie
+  wasm-opt -O3 --enable-reference-types --jspi \
+  --pass-arg=jspi-imports@dlfcn.dlopen \
+  --pass-arg=jspi-exports@_start \
+  -o main.wasm main.wasm
+*/
+```
+
+</Step>
+
+</CodeSurferColumns>
+
+---
+
+<CodeSurfer>
+
+```js subtitle="简单包一下先"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+```
+
+```js subtitle="在 JS 中创建内存、表格、栈指针"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+
+const mainModuleGlobalBase = 1024
+const memory = new WebAssembly.Memory({ initial: 1 })
+const __indirect_function_table = new WebAssembly.Table({
+  initial: 1,
+  element: 'anyfunc'
+})
+const __stack_pointer = new WebAssembly.Global({
+  value: 'i32',
+  mutable: true
+}, 4096)
+```
+
+```js subtitle="弄个简单的 wasm 模块注册表"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+
+const mainModuleGlobalBase = 1024
+const memory = new WebAssembly.Memory({ initial: 1 })
+const __indirect_function_table = new WebAssembly.Table({
+  initial: 1,
+  element: 'anyfunc'
+})
+const __stack_pointer = new WebAssembly.Global({
+  value: 'i32',
+  mutable: true
+}, 4096)
+
+const registryById = []
+const registryByUrl = new Map()
+let nextHandleId = 1
+
+function allocateHandleId () {
+  return nextHandleId++
+}
+
+function register (id, url, mod) {
+  const exports = mod.exports
+  const exportsList = Object.keys(exports)
+  const record = {
+    id,
+    url,
+    mod,
+    table: Object.create(null)
+  }
+  registryById[id] = record
+  registryByUrl.set(url, record)
+  const start = __indirect_function_table.length
+  __indirect_function_table.grow(exportsList.length)
+  const ignore = [
+    '__wasm_call_ctors',
+    '__wasm_apply_data_relocs',
+    '__dso_handle'
+  ]
+  for (let i = 0; i < exportsList.length; i++) {
+    const k = exportsList[i]
+    const index = start + i
+    record.table[k] = index
+    const value = exports[k]
+    if (typeof value !== 'function' && ignore.includes(k)) {
+      continue
+    }
+    const parameterType = WebAssembly.Function.type(value).parameters
+    if (parameterType[0] === 'externref') {
+      __indirect_function_table.set(index, wrapAsyncExport(value))
+    } else {
+      __indirect_function_table.set(index, value)
+    }
+  }
+  if ('__wasm_apply_data_relocs' in exports) {
+    exports.__wasm_apply_data_relocs()
+  }
+  if ('__wasm_call_ctors' in exports) {
+    exports.__wasm_call_ctors()
+  }
+}
+```
+
+```js subtitle="实例化主模块，把内存、表格、栈指针等等导入进 wasm"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+
+const mainModuleGlobalBase = 1024
+const memory = new WebAssembly.Memory({ initial: 1 })
+const __indirect_function_table = new WebAssembly.Table({
+  initial: 1,
+  element: 'anyfunc'
+})
+const __stack_pointer = new WebAssembly.Global({
+  value: 'i32',
+  mutable: true
+}, 4096)
+
+const registryById = []
+const registryByUrl = new Map()
+let nextHandleId = 1
+
+function allocateHandleId () {
+  return nextHandleId++
+}
+
+function register (id, url, mod) {
+  const exports = mod.exports
+  const exportsList = Object.keys(exports)
+  const record = {
+    id,
+    url,
+    mod,
+    table: Object.create(null)
+  }
+  registryById[id] = record
+  registryByUrl.set(url, record)
+  const start = __indirect_function_table.length
+  __indirect_function_table.grow(exportsList.length)
+  const ignore = [
+    '__wasm_call_ctors',
+    '__wasm_apply_data_relocs',
+    '__dso_handle'
+  ]
+  for (let i = 0; i < exportsList.length; i++) {
+    const k = exportsList[i]
+    const index = start + i
+    record.table[k] = index
+    const value = exports[k]
+    if (typeof value !== 'function' && ignore.includes(k)) {
+      continue
+    }
+    const parameterType = WebAssembly.Function.type(value).parameters
+    if (parameterType[0] === 'externref') {
+      __indirect_function_table.set(index, wrapAsyncExport(value))
+    } else {
+      __indirect_function_table.set(index, value)
+    }
+  }
+  if ('__wasm_apply_data_relocs' in exports) {
+    exports.__wasm_apply_data_relocs()
+  }
+  if ('__wasm_call_ctors' in exports) {
+    exports.__wasm_call_ctors()
+  }
+}
+
+const dlopen = wrapAsyncImport(async function (filename) {
+
+}, ['i32', 'i32'], ['i32'])
+
+function dlsym (handle, symbol) {
+
+}
+
+const url = new URL('main.wasm', import.meta.url)
+const mainModule = new WasmModule(
+  url,
+  {
+    env: {
+      memory,
+      __indirect_function_table,
+      __stack_pointer,
+      __memory_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, mainModuleGlobalBase),
+      __table_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, __indirect_function_table.length),
+      log (value) {
+        console.log(value)
+      }
+    },
+    dlfcn: {
+      dlopen,
+      dlsym
+    }
+  }
+)
+
+mainModule.instantiate().then(() => {
+  register(0, url, mainModule)
+
+  const asyncStart = wrapAsyncExport(mainModule.exports._start)
+  asyncStart().then((ret) => {
+    console.log(ret)
+  })
+})
+```
+
+```js subtitle="dlsym 在注册表里找到函数在表格中的索引"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+
+const mainModuleGlobalBase = 1024
+const memory = new WebAssembly.Memory({ initial: 1 })
+const __indirect_function_table = new WebAssembly.Table({
+  initial: 1,
+  element: 'anyfunc'
+})
+const __stack_pointer = new WebAssembly.Global({
+  value: 'i32',
+  mutable: true
+}, 4096)
+
+const registryById = []
+const registryByUrl = new Map()
+let nextHandleId = 1
+
+function allocateHandleId () {
+  return nextHandleId++
+}
+
+function register (id, url, mod) {
+  const exports = mod.exports
+  const exportsList = Object.keys(exports)
+  const record = {
+    id,
+    url,
+    mod,
+    table: Object.create(null)
+  }
+  registryById[id] = record
+  registryByUrl.set(url, record)
+  const start = __indirect_function_table.length
+  __indirect_function_table.grow(exportsList.length)
+  const ignore = [
+    '__wasm_call_ctors',
+    '__wasm_apply_data_relocs',
+    '__dso_handle'
+  ]
+  for (let i = 0; i < exportsList.length; i++) {
+    const k = exportsList[i]
+    const index = start + i
+    record.table[k] = index
+    const value = exports[k]
+    if (typeof value !== 'function' && ignore.includes(k)) {
+      continue
+    }
+    const parameterType = WebAssembly.Function.type(value).parameters
+    if (parameterType[0] === 'externref') {
+      __indirect_function_table.set(index, wrapAsyncExport(value))
+    } else {
+      __indirect_function_table.set(index, value)
+    }
+  }
+  if ('__wasm_apply_data_relocs' in exports) {
+    exports.__wasm_apply_data_relocs()
+  }
+  if ('__wasm_call_ctors' in exports) {
+    exports.__wasm_call_ctors()
+  }
+}
+
+const dlopen = wrapAsyncImport(async function (filename) {
+
+}, ['i32', 'i32'], ['i32'])
+
+function dlsym (handle, symbol) {
+  try {
+    const symbolName = decodeCString(mainModule.memory, symbol)
+    const index = registryById[handle].table[symbolName]
+    return index
+  } catch (err) {
+    console.error(err)
+    return 0
+  }
+}
+
+const url = new URL('main.wasm', import.meta.url)
+const mainModule = new WasmModule(
+  url,
+  {
+    env: {
+      memory,
+      __indirect_function_table,
+      __stack_pointer,
+      __memory_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, mainModuleGlobalBase),
+      __table_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, __indirect_function_table.length),
+      log (value) {
+        console.log(value)
+      }
+    },
+    dlfcn: {
+      dlopen,
+      dlsym
+    }
+  }
+)
+
+mainModule.instantiate().then(() => {
+  register(0, url, mainModule)
+
+  const asyncStart = wrapAsyncExport(mainModule.exports._start)
+  asyncStart().then((ret) => {
+    console.log(ret)
+  })
+})
+```
+
+```js subtitle="dlopen 用和主模块相同的内存和表格实例化 “动态库” 模块，加入注册表，把导出的函数装进表格"
+// class WasmModule ...
+
+function wrapAsyncImport (f, parameters, results) {
+  return new WebAssembly.Function(
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
+    f,
+    { suspending: 'first' }
+  )
+}
+
+function wrapAsyncExport (f) {
+  const { parameters } = WebAssembly.Function.type(f)
+  return new WebAssembly.Function(
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
+    f,
+    { promising: 'first' }
+  )
+}
+
+const mainModuleGlobalBase = 1024
+const memory = new WebAssembly.Memory({ initial: 1 })
+const __indirect_function_table = new WebAssembly.Table({
+  initial: 1,
+  element: 'anyfunc'
+})
+const __stack_pointer = new WebAssembly.Global({
+  value: 'i32',
+  mutable: true
+}, 4096)
+
+const registryById = []
+const registryByUrl = new Map()
+let nextHandleId = 1
+
+function allocateHandleId () {
+  return nextHandleId++
+}
+
+function register (id, url, mod) {
+  const exports = mod.exports
+  const exportsList = Object.keys(exports)
+  const record = {
+    id,
+    url,
+    mod,
+    table: Object.create(null)
+  }
+  registryById[id] = record
+  registryByUrl.set(url, record)
+  const start = __indirect_function_table.length
+  __indirect_function_table.grow(exportsList.length)
+  const ignore = [
+    '__wasm_call_ctors',
+    '__wasm_apply_data_relocs',
+    '__dso_handle'
+  ]
+  for (let i = 0; i < exportsList.length; i++) {
+    const k = exportsList[i]
+    const index = start + i
+    record.table[k] = index
+    const value = exports[k]
+    if (typeof value !== 'function' && ignore.includes(k)) {
+      continue
+    }
+    const parameterType = WebAssembly.Function.type(value).parameters
+    if (parameterType[0] === 'externref') {
+      __indirect_function_table.set(index, wrapAsyncExport(value))
+    } else {
+      __indirect_function_table.set(index, value)
+    }
+  }
+  if ('__wasm_apply_data_relocs' in exports) {
+    exports.__wasm_apply_data_relocs()
+  }
+  if ('__wasm_call_ctors' in exports) {
+    exports.__wasm_call_ctors()
+  }
+}
+
+const dlopen = wrapAsyncImport(async function (filename) {
+  try {
+    const file = decodeCString(mainModule.memory, filename)
+    const url = new URL(file, import.meta.url)
+    if (registryByUrl.has(url)) {
+      return registryByUrl.get(url).id
+    }
+    const mod = new WasmModule(url, {
+      env: {
+        memory,
+        __indirect_function_table,
+        __stack_pointer,
+        __memory_base: new WebAssembly.Global({
+          mutable: false,
+          value: 'i32'
+        }, mainModuleGlobalBase + nextHandleId * 64),
+        __table_base: new WebAssembly.Global({
+          mutable: false,
+          value: 'i32'
+        }, __indirect_function_table.length)
+      },
+      dlfcn: {
+        dlopen,
+        dlsym
+      }
+    })
+    await mod.instantiate(file)
+    const id = allocateHandleId()
+    register(id, url, mod)
+    return id
+  } catch (err) {
+    console.error(err)
+    return 0
+  }
+}, ['i32', 'i32'], ['i32'])
+
+function dlsym (handle, symbol) {
+  try {
+    const symbolName = decodeCString(mainModule.memory, symbol)
+    const index = registryById[handle].table[symbolName]
+    return index
+  } catch (err) {
+    console.error(err)
+    return 0
+  }
+}
+
+const url = new URL('main.wasm', import.meta.url)
+const mainModule = new WasmModule(
+  url,
+  {
+    env: {
+      memory,
+      __indirect_function_table,
+      __stack_pointer,
+      __memory_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, mainModuleGlobalBase),
+      __table_base: new WebAssembly.Global({
+        mutable: false,
+        value: 'i32'
+      }, __indirect_function_table.length),
+      log (value) {
+        console.log(value)
+      }
+    },
+    dlfcn: {
+      dlopen,
+      dlsym
+    }
+  }
+)
+
+mainModule.instantiate().then(() => {
+  register(0, url, mainModule)
+
+  const asyncStart = wrapAsyncExport(mainModule.exports._start)
+  asyncStart().then((ret) => {
+    console.log(ret)
+  })
+})
+```
+
+```diff
+```
+
+</CodeSurfer>
 
 ---
 
 # 感谢观看
+
+JSPI 提案：https://github.com/WebAssembly/js-promise-integration
+
+源码：https://github.com/toyobayashi/deck
 
 如果对你有帮助可以一键三连

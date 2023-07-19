@@ -6,7 +6,8 @@ export function decodeCString (memory, addr) {
   while (HEAPU8[end]) {
     end++
   }
-  const buffer = new Uint8Array(memory.buffer, addr, end - addr)
+  const buffer = new Uint8Array(
+    memory.buffer, addr, end - addr)
   return textDecoder.decode(buffer)
 }
 
@@ -35,26 +36,37 @@ export class WasmModule {
       const { readFile } = await import('fs/promises')
       buffer = await readFile(url)
     }
-    const result = await WebAssembly.instantiate(buffer, this.imports)
+    const result = await WebAssembly.instantiate(
+      buffer, this.imports)
     const instance = result.instance
     this.instance = instance
-    if (!this.memory) this.memory = instance.exports.memory
-    if (!this.table) this.table = instance.exports.__indirect_function_table
+    this.module = result.module
+    const exports = instance.exports
+    if (!this.memory) this.memory = exports.memory
+    if (!this.table) {
+      this.table = exports.__indirect_function_table
+    }
   }
 }
 
-export function wrapAsyncImport (f, parameterType, returnType) {
+export function wrapAsyncImport (f, parameters, results) {
   return new WebAssembly.Function(
-    { parameters: ['externref', ...parameterType], results: returnType },
+    {
+      parameters: ['externref', ...parameters],
+      results
+    },
     f,
     { suspending: 'first' }
   )
 }
 
 export function wrapAsyncExport (f) {
-  const parameterType = WebAssembly.Function.type(f).parameters
+  const { parameters } = WebAssembly.Function.type(f)
   return new WebAssembly.Function(
-    { parameters: parameterType.slice(1), results: ['externref'] },
+    {
+      parameters: parameters.slice(1),
+      results: ['externref']
+    },
     f,
     { promising: 'first' }
   )

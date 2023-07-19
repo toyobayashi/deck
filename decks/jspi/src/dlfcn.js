@@ -141,7 +141,7 @@ const mainModule = new WasmModule(
   }
 )
 
-mainModule.instantiate('dlfcn.wasm').then(() => {
+mainModule.instantiate().then(() => {
   register(0, url, mainModule)
 
   const asyncStart = wrapAsyncExport(mainModule.exports._start)
